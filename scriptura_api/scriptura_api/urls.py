@@ -18,7 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from core.views import BookViewSet
+from core.views import BookViewSet, BookAnalyticsView
 from themes.views import ThemeViewSet
 
 router = DefaultRouter()
@@ -28,4 +28,5 @@ router.register(r'themes', ThemeViewSet)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
+    path('api/books/<int:pk>/analytics/', BookAnalyticsView.as_view()),
 ]
