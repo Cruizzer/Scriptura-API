@@ -20,7 +20,7 @@ class Command(BaseCommand):
         verses_created = 0
 
         with transaction.atomic():  # single transaction for speed
-            for book_index, book_entry in enumerate(data['books']):
+            for book_index, book_entry in enumerate(data["books"][:-5]):
                 book_name = book_entry['name']
 
                 # Assign testament based on index
