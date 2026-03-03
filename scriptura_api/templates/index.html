@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scriptura - Bible Analytics</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Crimson+Text:wght@400;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at top, #f7f8fb 0%, #eff1f5 45%, #e7eaf0 100%);
+            min-height: 100vh;
+            color: #1f2937;
+        }
+
+        #app {
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(6px);
+            padding: 16px 28px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 26px;
+            border-radius: 14px;
+            border: 1px solid #e5e7eb;
+            position: sticky;
+            top: 12px;
+            z-index: 20;
+        }
+
+        .navbar h1 {
+            font-size: 23px;
+            font-weight: 700;
+            font-family: 'Crimson Text', serif;
+            letter-spacing: 0.02em;
+            color: #111827;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-links button {
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            padding: 9px 14px;
+            border-radius: 9px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-links button:hover,
+        .nav-links button.active {
+            background: #111827;
+            color: #f9fafb;
+            border-color: #111827;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Search Page */
+        .search-container {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 14px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .search-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .search-controls input,
+        .search-controls select {
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+            background: #fff;
+            color: #111827;
+        }
+
+        .search-controls input:focus,
+        .search-controls select:focus {
+            outline: none;
+            border-color: #4b5563;
+            box-shadow: 0 0 0 3px rgba(75, 85, 99, 0.12);
+        }
+
+        .search-results {
+            margin-top: 20px;
+        }
+
+        .result-item {
+            background: #f9fafb;
+            padding: 16px;
+            margin-bottom: 15px;
+            border-left: 3px solid #6b7280;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #e5e7eb;
+        }
+
+        .result-item:hover {
+            background: #f3f4f6;
+            transform: translateY(-1px);
+        }
+
+        .result-item strong {
+            color: #111827;
+            font-family: 'Crimson Text', serif;
+            font-size: 19px;
+        }
+
+        /* Chapter Viewer */
+        .chapter-viewer {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 14px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .chapter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #d1d5db;
+        }
+
+        .chapter-header h2 {
+            font-size: 34px;
+            color: #111827;
+            font-family: 'Crimson Text', serif;
+            font-weight: 700;
+        }
+
+        .chapter-viewer select {
+            width: 100%;
+            max-width: 460px;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: #fff;
+            color: #111827;
+            font-size: 15px;
+        }
+
+        .chapter-viewer select:focus {
+            outline: none;
+            border-color: #4b5563;
+            box-shadow: 0 0 0 3px rgba(75, 85, 99, 0.12);
+        }
+
+        .chapter-navigation {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chapter-navigation button {
+            padding: 10px 20px;
+            background: #1f2937;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 600;
+        }
+
+        .chapter-navigation button:hover {
+            background: #111827;
+        }
+
+        .chapter-navigation button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .verses {
+            line-height: 1.9;
+            font-family: 'Crimson Text', serif;
+            font-size: 22px;
+            color: #111827;
+            text-align: justify;
+            padding: 24px;
+            background: #ffffff;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .verse {
+            display: inline;
+        }
+
+        .verse-number {
+            font-weight: 700;
+            color: #9ca3af;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            vertical-align: super;
+            line-height: 0;
+            margin-left: 2px;
+            margin-right: 4px;
+        }
+
+        .verse-text {
+            color: #111827;
+            font-family: 'Crimson Text', serif;
+            font-size: 22px;
+            font-weight: 400;
+            letter-spacing: 0.01em;
+        }
+
+        /* Drop cap only for first verse */
+        .verse:first-child .verse-text::first-letter {
+            font-size: 3.5em;
+            line-height: 0.75;
+            float: left;
+            font-weight: 700;
+            margin-right: 0.08em;
+            margin-top: 0.08em;
+            color: #111827;
+        }
+
+        /* Theme Management */
+        .theme-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+        }
+
+        .theme-list, .theme-form {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 14px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .theme-item {
+            background: #f9fafb;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 3px solid #6b7280;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .theme-item h3 {
+            color: #111827;
+            margin-bottom: 10px;
+            font-family: 'Crimson Text', serif;
+            font-size: 24px;
+        }
+
+        .keywords {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .keyword-tag {
+            background: #111827;
+            color: #f9fafb;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4b5563;
+            box-shadow: 0 0 0 3px rgba(75, 85, 99, 0.12);
+        }
+
+        .btn-primary {
+            background: #111827;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            width: 100%;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            background: #000000;
+        }
+
+        .btn-small {
+            background: #dc3545;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .btn-small:hover {
+            background: #c82333;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #374151;
+            font-weight: bold;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            padding: 8px 16px;
+            background: #1f2937;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .pagination button.active {
+            background: #111827;
+        }
+
+        .pagination button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .search-highlight {
+            background: #fff7bf;
+            padding: 1px 3px;
+            border-radius: 2px;
+            box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        @media (max-width: 900px) {
+            .theme-container {
+                grid-template-columns: 1fr;
+            }
+
+            .search-controls {
+                grid-template-columns: 1fr;
+            }
+
+            .chapter-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .verse-text {
+                font-size: 20px;
+            }
+
+            .navbar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        {% verbatim %}
+        <div class="navbar">
+            <h1>Scriptura</h1>
+            <div class="nav-links">
+                <button 
+                    @click="currentPage = 'search'"
+                    :class="{ active: currentPage === 'search' }"
+                >
+                    Search
+                </button>
+                <button 
+                    @click="currentPage = 'chapters'"
+                    :class="{ active: currentPage === 'chapters' }"
+                >
+                    Browse
+                </button>
+                <button 
+                    @click="currentPage = 'themes'"
+                    :class="{ active: currentPage === 'themes' }"
+                >
+                    Themes
+                </button>
+                <button 
+                    @click="currentPage = 'analytics'"
+                    :class="{ active: currentPage === 'analytics' }"
+                >
+                    Analytics
+                </button>
+            </div>
+        </div>
+
+        <div class="container">
+            <!-- SEARCH PAGE -->
+            <div v-if="currentPage === 'search'" class="search-container">
+                <h2>Search Verses</h2>
+                <div class="search-controls">
+                    <input 
+                        v-model="searchQuery" 
+                        type="text" 
+                        placeholder="Search for words or phrases..."
+                        @input="performSearch"
+                    >
+                    <select v-model="selectedBook" @change="updateBookSelection">
+                        <option value="">All Books</option>
+                        <option v-for="book in books" :key="book.id" :value="book.id">
+                            {{ book.name }}
+                        </option>
+                    </select>
+                    <input 
+                        v-model="searchType" 
+                        type="hidden"
+                    >
+                </div>
+
+                <div v-if="loading" class="loading">Loading...</div>
+                <div v-if="searchResults.length > 0" class="search-results">
+                    <p style="color: #667eea; margin-bottom: 20px;">
+                        Found {{ searchResults.length }} results
+                    </p>
+                    <div 
+                        v-for="result in searchResults.slice(0, 50)" 
+                        :key="result.id"
+                        class="result-item"
+                        @click="goToVerse(result)"
+                    >
+                        <div>
+                            <strong>{{ result.book_name }} {{ result.chapter_number }}:{{ result.number }}</strong>
+                        </div>
+                        <div style="color: #666; margin-top: 5px;" v-html="highlightText(result.text, searchQuery)">
+                        </div>
+                    </div>
+                </div>
+                <div v-else-if="searchQuery && !loading" class="error">
+                    No verses found matching "{{ searchQuery }}"
+                </div>
+            </div>
+
+            <!-- CHAPTER BROWSER -->
+            <div v-if="currentPage === 'chapters'" class="chapter-viewer">
+                <div class="chapter-header">
+                    <div>
+                        <h2 v-if="currentChapter">
+                            {{ currentBook.name }} {{ currentChapter.chapter_number }}
+                        </h2>
+                        <p v-if="currentChapter" style="color: #666; margin-top: 5px;">
+                            {{ currentChapter.verse_count }} verses
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <select v-model="selectedChapterBook" @change="loadBookChapters">
+                            <option value="">Select a book...</option>
+                            <option v-for="book in books" :key="book.id" :value="book.id">
+                                {{ book.name }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+
+                <div v-if="selectedChapterBook" style="margin-bottom: 20px;">
+                    <select v-model="selectedChapterNumber" @change="loadChapter">
+                        <option value="">Select a chapter...</option>
+                        <option 
+                            v-for="ch in bookChapters" 
+                            :key="ch.id" 
+                            :value="ch.id"
+                        >
+                            Chapter {{ ch.chapter_number }} ({{ ch.verse_count }} verses)
+                        </option>
+                    </select>
+                </div>
+
+                <div v-if="currentChapter && currentChapterVerses.length > 0">
+                    <div class="verses">
+                        <span 
+                            v-for="verse in currentChapterVerses"
+                            :key="verse.id"
+                            class="verse"
+                        >
+                            <sup class="verse-number">{{ verse.number }}</sup>
+                            <span class="verse-text">{{ verse.text }}</span>
+                        </span>
+                    </div>
+
+                    <div class="chapter-navigation">
+                        <button 
+                            @click="goToPreviousChapter"
+                            :disabled="!canGoPrevious"
+                        >
+                            ← Previous Chapter
+                        </button>
+                        <span style="align-self: center; color: #666;">
+                            {{ currentBook.name }} {{ currentChapter.chapter_number }}
+                        </span>
+                        <button 
+                            @click="goToNextChapter"
+                            :disabled="!canGoNext"
+                        >
+                            Next Chapter →
+                        </button>
+                    </div>
+                </div>
+                <div v-else-if="selectedChapterBook" class="loading">
+                    Select a chapter to view verses
+                </div>
+            </div>
+
+            <!-- THEMES PAGE -->
+            <div v-if="currentPage === 'themes'">
+                <div class="theme-container">
+                    <div class="theme-list">
+                        <h2>Themes</h2>
+                        <div v-if="themes.length === 0" class="error">
+                            No themes yet. Create one to get started!
+                        </div>
+                        <div v-for="theme in themes" :key="theme.id" class="theme-item">
+                            <h3 style="cursor: pointer;" @click="selectedThemeForCoverage === theme.id ? (selectedThemeForCoverage = null, themeCoverage = null) : loadThemeCoverage(theme.id)">
+                                {{ theme.name }} 
+                                <span v-if="theme.id === selectedThemeForCoverage" style="font-size: 12px; color: #667eea;">▼</span>
+                                <span v-else style="font-size: 12px; color: #667eea;">▶</span>
+                            </h3>
+                            <div class="keywords">
+                                <span 
+                                    v-for="keyword in theme.keywords" 
+                                    :key="keyword.id"
+                                    class="keyword-tag"
+                                >
+                                    {{ keyword.word }}
+                                </span>
+                            </div>
+                            <button class="btn-small" @click="deleteTheme(theme.id)">
+                                Delete
+                            </button>
+                            
+                            <!-- Theme Coverage Section -->
+                            <div v-if="theme.id === selectedThemeForCoverage && themeCoverage" style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #ddd;">
+                                <h4 style="color: #667eea; margin-bottom: 15px;">Coverage by Book</h4>
+                                <div style="max-height: 300px; overflow-y: auto;">
+                                    <table style="width: 100%; font-size: 13px;">
+                                        <thead>
+                                            <tr style="background: #f8f9fa; position: sticky; top: 0;">
+                                                <th style="padding: 8px; text-align: left;">Book</th>
+                                                <th style="padding: 8px; text-align: right;">Keyword Count</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr 
+                                                v-for="book in themeCoverageSorted" 
+                                                :key="book.book"
+                                                style="border-bottom: 1px solid #eee;"
+                                            >
+                                                <td style="padding: 8px;">{{ book.book }}</td>
+                                                <td style="padding: 8px; text-align: right;">
+                                                    <span style="background: #667eea; color: white; padding: 2px 8px; border-radius: 12px;">
+                                                        {{ book.keyword_count }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="theme-form">
+                        <h2>Create Theme</h2>
+                        <div v-if="themeMessage" :class="themeMessage.type === 'success' ? 'success' : 'error'">
+                            {{ themeMessage.text }}
+                        </div>
+                        <form @submit.prevent="createTheme">
+                            <div class="form-group">
+                                <label>Theme Name</label>
+                                <input v-model="newTheme.name" type="text" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Keywords (comma-separated)</label>
+                                <textarea 
+                                    v-model="newTheme.keywords" 
+                                    placeholder="e.g., light, darkness, lamp"
+                                ></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary">Create Theme</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ANALYTICS PAGE -->
+            <div v-if="currentPage === 'analytics'">
+                <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1);">
+                    <h2>Book Analytics</h2>
+                    <div style="margin-top: 20px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f8f9fa; border-bottom: 2px solid #667eea;">
+                                    <th style="padding: 12px; text-align: left;">Book</th>
+                                    <th style="padding: 12px; text-align: right;">Words</th>
+                                    <th style="padding: 12px; text-align: right;">Entropy</th>
+                                    <th style="padding: 12px; text-align: right;">Vocabulary Richness (TTR)</th>
+                                    <th style="padding: 12px; text-align: right;">Hapax Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr 
+                                    v-for="summary in bookSummaries" 
+                                    :key="summary.id"
+                                    style="border-bottom: 1px solid #ddd; transition: background 0.3s;"
+                                    @mouseover="$event.target.parentElement.style.background = '#f8f9fa'"
+                                    @mouseout="$event.target.parentElement.style.background = 'white'"
+                                >
+                                    <td style="padding: 12px;">{{ summary.book }}</td>
+                                    <td style="padding: 12px; text-align: right;">{{ summary.word_count.toLocaleString() }}</td>
+                                    <td style="padding: 12px; text-align: right;">{{ summary.entropy ? summary.entropy.toFixed(2) : 'N/A' }}</td>
+                                    <td style="padding: 12px; text-align: right;">{{ summary.ttr ? summary.ttr.toFixed(3) : 'N/A' }}</td>
+                                    <td style="padding: 12px; text-align: right;">{{ summary.hapax_count || 'N/A' }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    currentPage: 'search',
+                    searchQuery: '',
+                    selectedBook: '',
+                    searchResults: [],
+                    loading: false,
+                    books: [],
+                    chapters: [],
+                    currentChapter: null,
+                    currentChapterVerses: [],
+                    currentBook: {},
+                    bookChapters: [],
+                    selectedChapterBook: 1,
+                    selectedChapterNumber: 1,
+                    themes: [],
+                    bookSummaries: [],
+                    newTheme: { name: '', keywords: '' },
+                    themeMessage: null,
+                    apiBase: 'http://127.0.0.1:8000/api',
+                    searchDebounceTimer: null,
+                    selectedThemeForCoverage: null,
+                    themeCoverage: null
+                };
+            },
+            computed: {
+                themeCoverageSorted() {
+                    if (!this.themeCoverage) return [];
+                    return [...this.themeCoverage.coverage].sort((a, b) => b.keyword_count - a.keyword_count);
+                },
+                canGoPrevious() {
+                    if (!this.currentBook.id || !this.bookChapters.length) return false;
+                    const currentChapterObj = this.bookChapters.find(ch => ch.id === parseInt(this.selectedChapterNumber));
+                    return currentChapterObj && currentChapterObj.chapter_number > 1;
+                },
+                canGoNext() {
+                    if (!this.currentBook.id || !this.bookChapters.length) return false;
+                    const currentChapterObj = this.bookChapters.find(ch => ch.id === parseInt(this.selectedChapterNumber));
+                    const maxChapter = Math.max(...this.bookChapters.map(ch => ch.chapter_number));
+                    return currentChapterObj && currentChapterObj.chapter_number < maxChapter;
+                }
+            },
+            methods: {
+                async loadBooks() {
+                    try {
+                        const res = await fetch(`${this.apiBase}/books/?limit=100`);
+                        const data = await res.json();
+                        this.books = data.results || data;
+                    } catch (e) {
+                        console.error('Error loading books:', e);
+                    }
+                },
+                highlightText(text, query) {
+                    const safeText = String(text)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;');
+
+                    if (!query || query.length < 2) return safeText;
+
+                    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                    return safeText.replace(regex, '<mark class="search-highlight">$1</mark>');
+                },
+                async performSearch() {
+                    if (this.searchQuery.length < 2) {
+                        this.searchResults = [];
+                        return;
+                    }
+
+                    clearTimeout(this.searchDebounceTimer);
+                    this.loading = true;
+
+                    this.searchDebounceTimer = setTimeout(async () => {
+                        try {
+                            let url = `${this.apiBase}/verses/?contains=${encodeURIComponent(this.searchQuery)}&limit=100`;
+                            if (this.selectedBook) {
+                                // Convert book ID to book name
+                                const selectedBookObj = this.books.find(b => b.id == this.selectedBook);
+                                if (selectedBookObj) {
+                                    url += `&book=${encodeURIComponent(selectedBookObj.name)}`;
+                                }
+                            }
+                            const res = await fetch(url);
+                            const data = await res.json();
+                            this.searchResults = data.results || [];
+                        } catch (e) {
+                            console.error('Search error:', e);
+                        } finally {
+                            this.loading = false;
+                        }
+                    }, 300);
+                },
+                updateBookSelection() {
+                    this.performSearch();
+                },
+                async goToVerse(verse) {
+                    this.currentPage = 'chapters';
+                    
+                    // Find the book by name from the verse result
+                    const book = this.books.find(b => b.name === verse.book_name);
+                    if (!book) return;
+                    
+                    this.selectedChapterBook = book.id;
+                    await this.loadBookChapters();
+                    
+                    // Find the chapter by book and chapter number
+                    const chapter = this.bookChapters.find(ch => 
+                        ch.book_name === verse.book_name && 
+                        ch.chapter_number === verse.chapter_number
+                    );
+                    
+                    if (chapter) {
+                        this.selectedChapterNumber = chapter.id;
+                        await this.loadChapter();
+                    }
+                },
+                async loadBookChapters() {
+                    if (!this.selectedChapterBook) return;
+
+                    try {
+                        const book = this.books.find(b => b.id == this.selectedChapterBook);
+                        this.currentBook = book;
+                        
+                        if (!book) return;
+                        
+                        // Filter chapters by book name - much more efficient
+                        const res = await fetch(`${this.apiBase}/chapters/?book__name=${encodeURIComponent(book.name)}&limit=200`);
+                        const data = await res.json();
+                        this.bookChapters = data.results || [];
+                    } catch (e) {
+                        console.error('Error loading chapters:', e);
+                    }
+                },
+                async loadChapter() {
+                    if (!this.selectedChapterNumber) return;
+
+                    try {
+                        const res = await fetch(`${this.apiBase}/chapters/${this.selectedChapterNumber}/`);
+                        const data = await res.json();
+                        this.currentChapter = data;
+                        this.currentChapterVerses = data.verses || [];
+                    } catch (e) {
+                        console.error('Error loading chapter:', e);
+                    }
+                },
+                async goToPreviousChapter() {
+                    const currentChapterObj = this.bookChapters.find(ch => ch.id === parseInt(this.selectedChapterNumber));
+                    const prevChapter = this.bookChapters.find(ch => ch.chapter_number === currentChapterObj.chapter_number - 1);
+                    if (prevChapter) {
+                        this.selectedChapterNumber = prevChapter.id;
+                        await this.loadChapter();
+                    }
+                },
+                async goToNextChapter() {
+                    const currentChapterObj = this.bookChapters.find(ch => ch.id === parseInt(this.selectedChapterNumber));
+                    const nextChapter = this.bookChapters.find(ch => ch.chapter_number === currentChapterObj.chapter_number + 1);
+                    if (nextChapter) {
+                        this.selectedChapterNumber = nextChapter.id;
+                        await this.loadChapter();
+                    }
+                },
+                async loadThemes() {
+                    try {
+                        const res = await fetch(`${this.apiBase}/themes/?limit=100`);
+                        const data = await res.json();
+                        this.themes = data.results || [];
+                    } catch (e) {
+                        console.error('Error loading themes:', e);
+                    }
+                },
+                async createTheme() {
+                    if (!this.newTheme.name) {
+                        this.themeMessage = { type: 'error', text: 'Please enter a theme name' };
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch(`${this.apiBase}/themes/`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: this.newTheme.name, keywords: [] })
+                        });
+
+                        if (!res.ok) {
+                            throw new Error('Failed to create theme');
+                        }
+
+                        const theme = await res.json();
+
+                        // Add keywords
+                        if (this.newTheme.keywords) {
+                            const keywords = this.newTheme.keywords.split(',')
+                                .map(k => k.trim())
+                                .filter(k => k.length > 0);
+                            
+                            for (const word of keywords) {
+                                const keywordRes = await fetch(`${this.apiBase}/theme-keywords/`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ theme: theme.id, word })
+                                });
+                                
+                                if (!keywordRes.ok) {
+                                    console.error(`Failed to add keyword: ${word}`);
+                                }
+                            }
+                        }
+
+                        this.themeMessage = { type: 'success', text: 'Theme created successfully!' };
+                        this.newTheme = { name: '', keywords: '' };
+                        await this.loadThemes();
+                    } catch (e) {
+                        console.error('Error creating theme:', e);
+                        this.themeMessage = { type: 'error', text: 'Error creating theme' };
+                    }
+                },
+                async deleteTheme(id) {
+                    if (!confirm('Delete this theme?')) return;
+                    try {
+                        await fetch(`${this.apiBase}/themes/${id}/`, { method: 'DELETE' });
+                        await this.loadThemes();
+                    } catch (e) {
+                        console.error('Error deleting theme:', e);
+                    }
+                },
+                async loadThemeCoverage(themeId) {
+                    try {
+                        const response = await fetch(`${this.apiBase}/themes/${themeId}/coverage/`);
+                        this.themeCoverage = await response.json();
+                        this.selectedThemeForCoverage = themeId;
+                    } catch (err) {
+                        console.error('Error loading theme coverage:', err);
+                    }
+                },
+                async loadBookSummaries() {
+                    try {
+                        const res = await fetch(`${this.apiBase}/book-summaries/?limit=100`);
+                        const data = await res.json();
+                        this.bookSummaries = data.results || [];
+                    } catch (e) {
+                        console.error('Error loading summaries:', e);
+                    }
+                }
+            },
+            async mounted() {
+                await this.loadBooks();
+                this.loadThemes();
+                this.loadBookSummaries();
+                
+                // Load Genesis 1 by default for browse page
+                await this.loadBookChapters();
+                await this.loadChapter();
+            }
+        }).mount('#app');
+    </script>
+        {% endverbatim %}
+</body>
+</html>
