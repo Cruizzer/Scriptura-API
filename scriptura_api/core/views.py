@@ -53,6 +53,12 @@ class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [django_filters.DjangoFilterBackend]
     filterset_fields = ['book__name', 'number']
 
+    def get_queryset(self):
+        qs = repositories.ChapterRepository.all()
+        if self.action == 'retrieve':
+            return qs.prefetch_related('sections', 'verses__footnotes')
+        return qs
+
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return ChapterSerializer  # full verses only for detail view

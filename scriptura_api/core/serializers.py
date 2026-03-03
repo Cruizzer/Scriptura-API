@@ -1,14 +1,41 @@
 from rest_framework import serializers
-from .models import Book, Chapter, Verse
+from .models import Book, Chapter, Verse, Section, Footnote
+
+
+class FootnoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Footnote
+        fields = ['id', 'marker', 'text']
+
+
+class SectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Section
+        fields = ['id', 'start_verse', 'title']
 
 
 class VerseSerializer(serializers.ModelSerializer):
     book_name = serializers.CharField(source='chapter.book.name', read_only=True)
     chapter_number = serializers.IntegerField(source='chapter.number', read_only=True)
+    footnotes = FootnoteSerializer(many=True, read_only=True)
+    section_title = serializers.SerializerMethodField()
     
     class Meta:
         model = Verse
-        fields = ['id', 'number', 'text', 'book_name', 'chapter_number']
+        fields = [
+            'id',
+            'number',
+            'text',
+            'paragraph_start',
+            'book_name',
+            'chapter_number',
+            'section_title',
+            'footnotes',
+        ]
+
+    def get_section_title(self, obj):
+        section_map = self.context.get('section_map', {})
+        return section_map.get(obj.number)
 
 
 class ChapterListSerializer(serializers.ModelSerializer):
@@ -27,13 +54,23 @@ class ChapterListSerializer(serializers.ModelSerializer):
 
 class ChapterSerializer(serializers.ModelSerializer):
     """Full chapter serializer with all verses for detail view."""
-    verses = VerseSerializer(many=True, read_only=True)
+    verses = serializers.SerializerMethodField()
+    sections = SectionSerializer(many=True, read_only=True)
     book_name = serializers.CharField(source='book.name', read_only=True)
     chapter_number = serializers.IntegerField(source='number')
 
     class Meta:
         model = Chapter
-        fields = ['id', 'book_name', 'chapter_number', 'verses']
+        fields = ['id', 'book_name', 'chapter_number', 'sections', 'verses']
+
+    def get_verses(self, obj):
+        section_map = {s.start_verse: s.title for s in obj.sections.all()}
+        verses = obj.verses.all().order_by('number')
+        return VerseSerializer(
+            verses,
+            many=True,
+            context={**self.context, 'section_map': section_map}
+        ).data
 
 
 class BookSerializer(serializers.ModelSerializer):

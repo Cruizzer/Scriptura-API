@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Book, Chapter, Verse
+from .models import Book, Chapter, Verse, Section, Footnote
 
 
 class ChapterInline(admin.TabularInline):
@@ -11,7 +11,13 @@ class ChapterInline(admin.TabularInline):
 class VerseInline(admin.TabularInline):
     model = Verse
     extra = 0
-    fields = ['number', 'text']
+    fields = ['number', 'paragraph_start', 'text']
+
+
+class SectionInline(admin.TabularInline):
+    model = Section
+    extra = 0
+    fields = ['start_verse', 'title']
 
 
 @admin.register(Book)
@@ -31,7 +37,7 @@ class ChapterAdmin(admin.ModelAdmin):
     list_display = ['id', 'book', 'number', 'verse_count']
     list_filter = ['book__testament', 'book']
     search_fields = ['book__name']
-    inlines = [VerseInline]
+    inlines = [SectionInline, VerseInline]
 
     def verse_count(self, obj):
         return obj.verses.count()
@@ -40,10 +46,28 @@ class ChapterAdmin(admin.ModelAdmin):
 
 @admin.register(Verse)
 class VerseAdmin(admin.ModelAdmin):
-    list_display = ['id', 'chapter', 'number', 'text_preview']
+    list_display = ['id', 'chapter', 'number', 'paragraph_start', 'text_preview']
     list_filter = ['chapter__book__testament', 'chapter__book']
     search_fields = ['text', 'chapter__book__name']
 
     def text_preview(self, obj):
         return obj.text[:80] + '...' if len(obj.text) > 80 else obj.text
     text_preview.short_description = 'Text'
+
+
+@admin.register(Section)
+class SectionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'chapter', 'start_verse', 'title']
+    list_filter = ['chapter__book', 'chapter__book__testament']
+    search_fields = ['title', 'chapter__book__name']
+
+
+@admin.register(Footnote)
+class FootnoteAdmin(admin.ModelAdmin):
+    list_display = ['id', 'verse', 'marker', 'text_preview']
+    list_filter = ['verse__chapter__book', 'verse__chapter__book__testament']
+    search_fields = ['text', 'verse__chapter__book__name']
+
+    def text_preview(self, obj):
+        return obj.text[:100] + '...' if len(obj.text) > 100 else obj.text
+    text_preview.short_description = 'Footnote'
