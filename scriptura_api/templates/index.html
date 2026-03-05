@@ -1503,7 +1503,7 @@
         createApp({
             data() {
                 return {
-                    currentPage: 'search',
+                    currentPage: localStorage.getItem('currentPage') || 'search',
                     searchQuery: '',
                     highlightedQuery: '',
                     selectedBook: '',
@@ -1572,7 +1572,11 @@
                     return this.currentChapterVerses.flatMap(v => v.footnotes || []);
                 },
             },
-            watch: {},
+            watch: {
+                currentPage(newPage) {
+                    localStorage.setItem('currentPage', newPage);
+                }
+            },
             methods: {
                 getTestament(book) { return OT_SET.has(book) ? 'Old Testament' : 'New Testament'; },
                 computeBookSimilarity() {
@@ -1804,6 +1808,30 @@
                     if (chapter) {
                         this.selectedChapterNumber = chapter.id;
                         await this.loadChapter();
+                        
+                        // Wait for DOM to update then scroll to verse
+                        this.$nextTick(() => {
+                            setTimeout(() => {
+                                const verseElements = document.querySelectorAll('.verse');
+                                const targetVerse = Array.from(verseElements).find(el => {
+                                    const text = el.textContent;
+                                    return text.includes(`${verse.number}`) && text.includes(verse.text.substring(0, 30));
+                                });
+                                
+                                if (targetVerse) {
+                                    targetVerse.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    // Flash highlight effect
+                                    targetVerse.style.animation = 'none';
+                                    setTimeout(() => {
+                                        targetVerse.style.background = 'rgba(102, 126, 234, 0.2)';
+                                        targetVerse.style.transition = 'background 0.3s ease';
+                                        setTimeout(() => {
+                                            targetVerse.style.background = '';
+                                        }, 1500);
+                                    }, 100);
+                                }
+                            }, 100);
+                        });
                     }
                 },
                 async loadBookChapters() {
@@ -2196,6 +2224,11 @@
                         this.selectedChapterNumber = firstChapter.id;
                         await this.loadChapter();
                     }
+                }
+                
+                // Initialize analytics graph if on analytics page
+                if (this.currentPage === 'analytics') {
+                    this.$nextTick(() => this.initializeVisNetwork());
                 }
             }
         }).mount('#app');
