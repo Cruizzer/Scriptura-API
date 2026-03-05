@@ -1121,11 +1121,19 @@
 
             <!-- COLLECTIONS PAGE -->
             <div v-if="currentPage === 'collections'" class="search-container">
-                <h2>My Collections</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>My Collections</h2>
+                    <button 
+                        @click="createNewCollectionPrompt"
+                        style="background: #667eea; color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;"
+                    >
+                        + Create Collection
+                    </button>
+                </div>
                 
                 <div v-if="collections.length === 0" style="text-align: center; padding: 40px; color: #9ca3af;">
                     <p style="margin-bottom: 16px;">You haven't created any collections yet.</p>
-                    <p style="font-size: 13px;">Go to <strong>Browse</strong> and click "Show Collections" to start curating verses.</p>
+                    <p style="font-size: 13px;">Click "Create Collection" above to start, or go to <strong>Browse</strong> and click "Show Collections" to curate verses.</p>
                 </div>
 
                 <div v-else style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px;">
@@ -1139,12 +1147,20 @@
                                     {{ collection.description }}
                                 </p>
                             </div>
-                            <button 
-                                @click="deleteCollection(collection.id)"
-                                style="background: #fee2e2; color: #b91c1c; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;"
-                            >
-                                Delete
-                            </button>
+                            <div style="display: flex; gap: 8px;">
+                                <button 
+                                    @click="editCollection(collection.id)"
+                                    style="background: #dbeafe; color: #1d4ed8; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;"
+                                >
+                                    Edit
+                                </button>
+                                <button 
+                                    @click="deleteCollection(collection.id)"
+                                    style="background: #fee2e2; color: #b91c1c; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;"
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
 
                         <div style="display: flex; gap: 16px; margin-bottom: 16px;">
@@ -1201,14 +1217,25 @@
                             <div 
                                 v-for="verse in viewingCollectionVerses" 
                                 :key="verse.id"
-                                style="background: #f9fafb; border-left: 3px solid #667eea; padding: 12px; border-radius: 6px;"
+                                style="background: #f9fafb; border-left: 3px solid #667eea; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: start;"
                             >
-                                <div style="font-weight: 600; color: #111827; margin-bottom: 6px;">
-                                    {{ verse.book_name }} {{ verse.chapter_number }}:{{ verse.number }}
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #111827; margin-bottom: 6px;">
+                                        {{ verse.book_name }} {{ verse.chapter_number }}:{{ verse.number }}
+                                    </div>
+                                    <div style="color: #374151; font-size: 14px; line-height: 1.5;">
+                                        {{ verse.text }}
+                                    </div>
                                 </div>
-                                <div style="color: #374151; font-size: 14px; line-height: 1.5;">
-                                    {{ verse.text }}
-                                </div>
+                                <button 
+                                    @click="removeVerseFromCollection(viewingCollectionId, verse.id)"
+                                    style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; flex-shrink: 0; font-size: 16px; margin-left: 8px; opacity: 0.7; transition: opacity 0.2s;"
+                                    @mouseover="$event.target.style.opacity = '1'"
+                                    @mouseleave="$event.target.style.opacity = '0.7'"
+                                    title="Remove from collection"
+                                >
+                                    🗑️
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -2046,10 +2073,108 @@
                         });
                         if (res.ok) {
                             await this.loadCollections();
+                        } else {
+                            const errorData = await res.json().catch(() => ({}));
+                            console.error('Delete error:', res.status, errorData);
+                            alert(`Error deleting collection: ${res.status}`);
                         }
                     } catch (e) {
                         console.error('Error deleting collection:', e);
-                        alert('Error deleting collection');
+                        alert('Error deleting collection: ' + e.message);
+                    }
+                },
+                async editCollection(collectionId) {
+                    const collection = this.collections.find(c => c.id === collectionId);
+                    if (!collection) return;
+                    
+                    const name = prompt('Collection name:', collection.name);
+                    if (name === null) return;
+                    
+                    const description = prompt('Collection description:', collection.description || '');
+                    if (description === null) return;
+                    
+                    try {
+                        const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: name,
+                                description: description,
+                                verses: (collection.verses || []).map(v => v.id || v),
+                                themes: (collection.themes || [])
+                            })
+                        });
+                        if (res.ok) {
+                            alert('Collection updated!');
+                            await this.loadCollections();
+                        } else {
+                            const errorData = await res.json().catch(() => ({}));
+                            console.error('Update error:', res.status, errorData);
+                            alert(`Error updating collection: ${res.status}`);
+                        }
+                    } catch (e) {
+                        console.error('Error updating collection:', e);
+                        alert('Error updating collection: ' + e.message);
+                    }
+                },
+                async createNewCollectionPrompt() {
+                    const name = prompt('Collection name:');
+                    if (!name) return;
+                    
+                    const description = prompt('Collection description (optional):') || '';
+                    
+                    try {
+                        const res = await fetch(`${this.apiBase}/collections/`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: name,
+                                description: description,
+                                verses: [],
+                                themes: []
+                            })
+                        });
+                        if (res.ok) {
+                            alert(`Created collection "${name}"!`);
+                            await this.loadCollections();
+                        } else {
+                            const errorData = await res.json().catch(() => ({}));
+                            console.error('Create error:', res.status, errorData);
+                            alert(`Error creating collection: ${res.status}`);
+                        }
+                    } catch (e) {
+                        console.error('Error creating collection:', e);
+                        alert('Error creating collection: ' + e.message);
+                    }
+                },
+                async removeVerseFromCollection(collectionId, verseId) {
+                    const collection = this.collections.find(c => c.id === collectionId);
+                    if (!collection) return;
+                    
+                    const remainingVerses = (collection.verses || [])
+                        .filter(v => (v.id || v) !== verseId)
+                        .map(v => v.id || v);
+                    
+                    try {
+                        const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: collection.name,
+                                description: collection.description,
+                                verses: remainingVerses,
+                                themes: (collection.themes || [])
+                            })
+                        });
+                        if (res.ok) {
+                            await this.viewCollectionVerses(collectionId);
+                            await this.loadCollections();
+                        } else {
+                            alert('Error removing verse');
+                        }
+                    } catch (e) {
+                        console.error('Error removing verse:', e);
+                        alert('Error removing verse: ' + e.message);
                     }
                 },
             },
