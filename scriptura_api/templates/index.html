@@ -789,6 +789,12 @@
                     Themes
                 </button>
                 <button 
+                    @click="currentPage = 'collections'"
+                    :class="{ active: currentPage === 'collections' }"
+                >
+                    Collections
+                </button>
+                <button 
                     @click="openAnalyticsPage"
                     :class="{ active: currentPage === 'analytics' }"
                 >
@@ -875,7 +881,7 @@
                             Chapter {{ ch.chapter_number }} ({{ ch.verse_count }} verses)
                         </option>
                     </select>
-                    <div v-if="currentChapter && currentChapterVerses.length > 0" class="chapter-navigation" style="gap: 10px; margin: 0;">
+                    <div v-if="currentChapter && currentChapterVerses.length > 0" class="chapter-navigation" style="gap: 10px; margin: 0; display: flex; align-items: center;">
                         <button 
                             @click="goToPreviousChapter"
                             :disabled="!canGoPrevious"
@@ -895,34 +901,53 @@
                         >
                             Clear Highlight
                         </button>
+                        <button 
+                            @click="showCollectionsPanel = !showCollectionsPanel"
+                            style="background: #667eea; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; margin-left: auto;"
+                        >
+                            {{ showCollectionsPanel ? 'Hide' : 'Show' }} Collections ({{ selectedVerses.size }})
+                        </button>
                     </div>
                 </div>
 
-                <div v-if="currentChapter && currentChapterVerses.length > 0">
-                    <div class="verses">
-                        <template 
-                            v-for="verse in currentChapterVerses"
-                            :key="verse.id"
-                        >
-                            <span v-if="verse.section_title" class="section-heading">{{ verse.section_title }}</span>
-                            <span 
-                                class="verse"
-                                :class="{ 'first-verse': verse.number === 1, 'section-start': verse.section_title, 'paragraph-start': verse.paragraph_start }"
+                <div v-if="currentChapter && currentChapterVerses.length > 0" style="display: flex; gap: 20px; position: relative;">
+                    <div style="flex: 1;">
+                        <div class="verses">
+                            <template 
+                                v-for="verse in currentChapterVerses"
+                                :key="verse.id"
                             >
-                            <sup class="verse-number">{{ verse.number }}</sup>
-                                <span class="verse-text" v-html="highlightedQuery ? highlightText(verse.text, highlightedQuery) : verse.text"></span>
-                                <button
-                                    v-for="fn in verse.footnotes"
-                                    :key="fn.id"
-                                    class="footnote-ref"
-                                    @click.stop="alert(fn.text)"
-                                    :title="fn.text"
+                                <span v-if="verse.section_title" class="section-heading">{{ verse.section_title }}</span>
+                                <div 
+                                    class="verse"
+                                    :class="{ 'first-verse': verse.number === 1, 'section-start': verse.section_title, 'paragraph-start': verse.paragraph_start, 'verse-selected': selectedVerses.has(verse.id) }"
+                                    style="display: flex; gap: 8px; padding: 2px 4px; cursor: pointer; border-radius: 4px; transition: background 0.2s;"
+                                    @click="showCollectionsPanel ? toggleVerseSelection(verse.id) : null"
+                                    :style="showCollectionsPanel && selectedVerses.has(verse.id) ? 'background: rgba(102, 126, 234, 0.1);' : ''"
                                 >
-                                    {{ fn.marker || '*' }}
-                                </button>
-                            </span>
-                        </template>
-                    </div>
+                                    <input 
+                                        v-if="showCollectionsPanel"
+                                        type="checkbox" 
+                                        :checked="selectedVerses.has(verse.id)"
+                                        @click.stop="toggleVerseSelection(verse.id)"
+                                        style="cursor: pointer; flex-shrink: 0; margin-top: 2px;"
+                                    >
+                                    <span style="flex: 1;">
+                                        <sup class="verse-number">{{ verse.number }}</sup>
+                                        <span class="verse-text" v-html="highlightedQuery ? highlightText(verse.text, highlightedQuery) : verse.text"></span>
+                                        <button
+                                            v-for="fn in verse.footnotes"
+                                            :key="fn.id"
+                                            class="footnote-ref"
+                                            @click.stop="alert(fn.text)"
+                                            :title="fn.text"
+                                        >
+                                            {{ fn.marker || '*' }}
+                                        </button>
+                                    </span>
+                                </div>
+                            </template>
+                        </div>
 
                     <div v-if="chapterFootnotes.length" class="footnotes-panel">
                         <h4>Footnotes</h4>
@@ -951,6 +976,45 @@
                         >
                             Next Chapter →
                         </button>
+                    </div>
+                    </div>
+
+                    <!-- Collections Sidebar -->
+                    <div v-if="showCollectionsPanel" style="width: 300px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; position: sticky; top: 100px; height: fit-content;">
+                        <h3 style="font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 8px;">
+                            {{ selectedVerses.size }} Verses Selected
+                        </h3>
+                        
+                        <div v-if="selectedVerses.size > 0" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button 
+                                @click="createCollectionFromSelection"
+                                style="background: #667eea; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; flex: 1;"
+                            >
+                                New Collection
+                            </button>
+                        </div>
+
+                        <div style="border-top: 1px solid #d1d5db; padding-top: 12px;">
+                            <h4 style="font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px;">Your Collections</h4>
+                            
+                            <div v-if="collections.length === 0" style="color: #9ca3af; font-size: 12px; text-align: center; padding: 12px 0;">
+                                No collections yet. Create one from selected verses.
+                            </div>
+                            
+                            <div v-for="collection in collections" :key="collection.id" style="background: white; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: 13px;">
+                                <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">{{ collection.name }}</div>
+                                <div style="color: #666; font-size: 11px; margin-bottom: 6px;">
+                                    {{ collection.verse_count }} verses
+                                </div>
+                                <button 
+                                    v-if="selectedVerses.size > 0"
+                                    @click="saveToCollection(collection.id)"
+                                    style="background: #667eea; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; width: 100%;"
+                                >
+                                    Add Selected
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div v-else-if="selectedChapterBook" class="loading">
@@ -1051,6 +1115,102 @@
                             </div>
                             <button type="submit" class="btn-primary">Create Theme</button>
                         </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLLECTIONS PAGE -->
+            <div v-if="currentPage === 'collections'" class="search-container">
+                <h2>My Collections</h2>
+                
+                <div v-if="collections.length === 0" style="text-align: center; padding: 40px; color: #9ca3af;">
+                    <p style="margin-bottom: 16px;">You haven't created any collections yet.</p>
+                    <p style="font-size: 13px;">Go to <strong>Browse</strong> and click "Show Collections" to start curating verses.</p>
+                </div>
+
+                <div v-else style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px;">
+                    <div v-for="collection in collections" :key="collection.id" style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+                            <div>
+                                <h3 style="font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 6px;">
+                                    {{ collection.name }}
+                                </h3>
+                                <p v-if="collection.description" style="color: #6b7280; font-size: 13px;">
+                                    {{ collection.description }}
+                                </p>
+                            </div>
+                            <button 
+                                @click="deleteCollection(collection.id)"
+                                style="background: #fee2e2; color: #b91c1c; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;"
+                            >
+                                Delete
+                            </button>
+                        </div>
+
+                        <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                            <div>
+                                <div style="font-size: 13px; color: #6b7280;">Verses</div>
+                                <div style="font-size: 20px; font-weight: 700; color: #667eea;">{{ collection.verse_count || 0 }}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 13px; color: #6b7280;">Themes</div>
+                                <div style="font-size: 20px; font-weight: 700; color: #667eea;">{{ collection.theme_count || 0 }}</div>
+                            </div>
+                        </div>
+
+                        <div v-if="collection.themes && collection.themes.length > 0" style="margin-bottom: 16px;">
+                            <h4 style="font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 8px;">Themes</h4>
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                <span v-for="theme in collection.themes" :key="theme" style="background: #e0e7ff; color: #4f46e5; padding: 4px 9px; border-radius: 6px; font-size: 12px; font-weight: 500;">
+                                    {{ theme }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <button 
+                            @click="viewCollectionVerses(collection.id)"
+                            style="width: 100%; background: #667eea; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
+                            @mouseover="$event.target.style.background = '#5568d3'"
+                            @mouseleave="$event.target.style.background = '#667eea'"
+                        >
+                            View Verses
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Collection Verses Modal -->
+                <div v-if="viewingCollectionId" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+                    <div style="background: white; border-radius: 12px; padding: 32px; max-width: 700px; max-height: 80vh; overflow-y: auto; width: 90%;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                            <h3 style="font-size: 20px; font-weight: 700; color: #111827;">
+                                {{ collections.find(c => c.id === viewingCollectionId)?.name || 'Collection' }}
+                            </h3>
+                            <button 
+                                @click="viewingCollectionId = null"
+                                style="background: #f3f4f6; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600;"
+                            >
+                                Close
+                            </button>
+                        </div>
+
+                        <div v-if="viewingCollectionVerses.length === 0" style="text-align: center; color: #9ca3af; padding: 40px 0;">
+                            No verses in this collection.
+                        </div>
+
+                        <div v-else style="display: flex; flex-direction: column; gap: 12px;">
+                            <div 
+                                v-for="verse in viewingCollectionVerses" 
+                                :key="verse.id"
+                                style="background: #f9fafb; border-left: 3px solid #667eea; padding: 12px; border-radius: 6px;"
+                            >
+                                <div style="font-weight: 600; color: #111827; margin-bottom: 6px;">
+                                    {{ verse.book_name }} {{ verse.chapter_number }}:{{ verse.number }}
+                                </div>
+                                <div style="color: #374151; font-size: 14px; line-height: 1.5;">
+                                    {{ verse.text }}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1346,6 +1506,10 @@
                         verses: [],
                         themes: []
                     },
+                    selectedVerses: new Set(),
+                    showCollectionsPanel: false,
+                    viewingCollectionId: null,
+                    viewingCollectionVerses: [],
                     simSelectedBook: '',
                     simTopK: 10,
                     simShowCross: true,
@@ -1780,11 +1944,120 @@
                     this.currentPage = 'analytics';
                     this.$nextTick(() => this.initializeVisNetwork());
                 },
+                toggleVerseSelection(verseId) {
+                    if (this.selectedVerses.has(verseId)) {
+                        this.selectedVerses.delete(verseId);
+                    } else {
+                        this.selectedVerses.add(verseId);
+                    }
+                    this.selectedVerses = new Set(this.selectedVerses);
+                },
+                clearSelectedVerses() {
+                    this.selectedVerses.clear();
+                    this.selectedVerses = new Set();
+                },
+                async saveToCollection(collectionId) {
+                    if (this.selectedVerses.size === 0) {
+                        alert('Please select some verses first');
+                        return;
+                    }
+                    
+                    try {
+                        const verseIdArray = Array.from(this.selectedVerses);
+                        const response = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                verses: verseIdArray
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            alert(`Added ${verseIdArray.length} verse(s) to collection!`);
+                            this.clearSelectedVerses();
+                            await this.loadCollections();
+                        } else {
+                            alert('Error saving to collection');
+                        }
+                    } catch (e) {
+                        console.error('Error saving to collection:', e);
+                        alert('Error saving to collection');
+                    }
+                },
+                async createCollectionFromSelection() {
+                    if (this.selectedVerses.size === 0) {
+                        alert('Please select some verses first');
+                        return;
+                    }
+                    
+                    const collectionName = prompt('Enter collection name:');
+                    if (!collectionName) return;
+                    
+                    try {
+                        const verseIdArray = Array.from(this.selectedVerses);
+                        const response = await fetch(`${this.apiBase}/collections/`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: collectionName,
+                                description: '',
+                                verses: verseIdArray,
+                                themes: []
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            alert(`Created collection "${collectionName}" with ${verseIdArray.length} verse(s)!`);
+                            this.clearSelectedVerses();
+                            await this.loadCollections();
+                        } else {
+                            alert('Error creating collection');
+                        }
+                    } catch (e) {
+                        console.error('Error creating collection:', e);
+                        alert('Error creating collection');
+                    }
+                },
+                async loadCollections() {
+                    try {
+                        const res = await fetch(`${this.apiBase}/collections/`);
+                        const data = await res.json();
+                        this.collections = data.results || data || [];
+                    } catch (e) {
+                        console.error('Error loading collections:', e);
+                    }
+                },
+                async viewCollectionVerses(collectionId) {
+                    this.viewingCollectionId = collectionId;
+                    try {
+                        const res = await fetch(`${this.apiBase}/collections/${collectionId}/`);
+                        const data = await res.json();
+                        this.viewingCollectionVerses = data.verses || [];
+                    } catch (e) {
+                        console.error('Error loading collection verses:', e);
+                        this.viewingCollectionVerses = [];
+                    }
+                },
+                async deleteCollection(collectionId) {
+                    if (!confirm('Delete this collection?')) return;
+                    try {
+                        const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
+                            method: 'DELETE'
+                        });
+                        if (res.ok) {
+                            await this.loadCollections();
+                        }
+                    } catch (e) {
+                        console.error('Error deleting collection:', e);
+                        alert('Error deleting collection');
+                    }
+                },
             },
             async mounted() {
                 await this.loadBooks();
                 this.loadThemes();
                 this.loadBookSummaries();
+                this.loadCollections();
                 
                 // Load Genesis 1 by default for browse page
                 const genesis = this.books.find(b => b.name.toLowerCase() === 'genesis');
