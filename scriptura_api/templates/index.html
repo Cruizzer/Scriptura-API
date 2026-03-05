@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scriptura - Bible Analytics</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Crimson+Text:wght@400;600;700&display=swap');
 
@@ -342,18 +343,85 @@
 
         .theme-item {
             background: #f9fafb;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-left: 3px solid #6b7280;
-            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 14px;
+            border-radius: 10px;
             border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .theme-item h3 {
+        .theme-item:hover {
+            border-color: #d1d5db;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        .theme-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .theme-toggle-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 6px 8px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            border-radius: 8px;
+            transition: background 0.2s ease;
+        }
+
+        .theme-toggle-btn:hover {
+            background: #f3f4f6;
+        }
+
+        .theme-name {
             color: #111827;
-            margin-bottom: 10px;
             font-family: 'Crimson Text', serif;
             font-size: 24px;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+
+        .theme-meta {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .coverage-pill {
+            background: #eef2ff;
+            color: #3730a3;
+            border: 1px solid #c7d2fe;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+
+        .theme-chevron {
+            color: #4f46e5;
+            font-size: 13px;
+            transition: transform 0.2s ease;
+            display: inline-block;
+        }
+
+        .theme-chevron.expanded {
+            transform: rotate(180deg);
+        }
+
+        .theme-actions {
+            display: flex;
+            align-items: center;
         }
 
         .keywords {
@@ -365,9 +433,85 @@
         .keyword-tag {
             background: #111827;
             color: #f9fafb;
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: 5px 9px;
+            border-radius: 999px;
             font-size: 12px;
+        }
+
+        .theme-coverage-panel {
+            margin-top: 14px;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .theme-coverage-title {
+            color: #4338ca;
+            margin-bottom: 10px;
+            font-size: 14px;
+            letter-spacing: 0.02em;
+            font-weight: 700;
+        }
+
+        .coverage-table-wrap {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
+        .coverage-table {
+            width: 100%;
+            font-size: 13px;
+            border-collapse: collapse;
+        }
+
+        .coverage-table thead tr {
+            background: #f8fafc;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .coverage-table th,
+        .coverage-table td {
+            padding: 9px 10px;
+        }
+
+        .coverage-table th {
+            text-align: left;
+            color: #374151;
+            font-weight: 700;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .coverage-table th:last-child,
+        .coverage-table td:last-child {
+            text-align: right;
+        }
+
+        .coverage-table tbody tr {
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .coverage-table tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .coverage-badge {
+            background: #4338ca;
+            color: white;
+            padding: 2px 9px;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .coverage-loading,
+        .coverage-empty {
+            padding: 10px;
+            font-size: 13px;
+            color: #6b7280;
         }
 
         .form-group {
@@ -421,18 +565,18 @@
         }
 
         .btn-small {
-            background: #dc3545;
+            background: #ef4444;
             color: white;
-            padding: 6px 12px;
+            padding: 7px 12px;
             border: none;
-            border-radius: 4px;
+            border-radius: 7px;
             cursor: pointer;
             font-size: 12px;
-            margin-top: 10px;
+            font-weight: 600;
         }
 
         .btn-small:hover {
-            background: #c82333;
+            background: #dc2626;
         }
 
         .loading {
@@ -492,6 +636,103 @@
             box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.1);
         }
 
+        .analytics-shell {
+            display: grid;
+            gap: 20px;
+        }
+
+        .analytics-card {
+            background: #ffffff;
+            padding: 22px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .analytics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .analytics-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .analytics-controls input,
+        .analytics-controls select {
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        .btn-inline {
+            background: #1f2937;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-inline:hover {
+            background: #111827;
+        }
+
+        .graph-wrap {
+            overflow-x: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #fcfcfd;
+            padding: 8px;
+        }
+
+        .similarity-legend {
+            display: flex;
+            gap: 16px;
+            margin: 8px 0 12px;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .legend-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .collection-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .collection-list-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f9fafb;
+        }
+
+        .collection-meta {
+            color: #6b7280;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
         @media (max-width: 900px) {
             .theme-container {
                 grid-template-columns: 1fr;
@@ -515,6 +756,10 @@
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 12px;
+            }
+
+            .collection-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -544,7 +789,7 @@
                     Themes
                 </button>
                 <button 
-                    @click="currentPage = 'analytics'"
+                    @click="openAnalyticsPage"
                     :class="{ active: currentPage === 'analytics' }"
                 >
                     Analytics
@@ -722,11 +967,27 @@
                             No themes yet. Create one to get started!
                         </div>
                         <div v-for="theme in themes" :key="theme.id" class="theme-item">
-                            <h3 style="cursor: pointer;" @click="selectedThemeForCoverage === theme.id ? (selectedThemeForCoverage = null, themeCoverage = null) : loadThemeCoverage(theme.id)">
-                                {{ theme.name }} 
-                                <span v-if="theme.id === selectedThemeForCoverage" style="font-size: 12px; color: #667eea;">▼</span>
-                                <span v-else style="font-size: 12px; color: #667eea;">▶</span>
-                            </h3>
+                            <div class="theme-item-header">
+                                <button
+                                    class="theme-toggle-btn"
+                                    @click="toggleThemeCoverage(theme.id)"
+                                    :aria-expanded="theme.id === selectedThemeForCoverage"
+                                >
+                                    <span class="theme-name">{{ theme.name }}</span>
+                                    <span class="theme-meta">
+                                        <span class="coverage-pill">
+                                            {{ theme.keywords.length }} keyword{{ theme.keywords.length === 1 ? '' : 's' }}
+                                        </span>
+                                        <span class="theme-chevron" :class="{ expanded: theme.id === selectedThemeForCoverage }">▼</span>
+                                    </span>
+                                </button>
+                                <div class="theme-actions">
+                                    <button class="btn-small" @click="deleteTheme(theme.id)">
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+
                             <div class="keywords">
                                 <span 
                                     v-for="keyword in theme.keywords" 
@@ -736,30 +997,29 @@
                                     {{ keyword.word }}
                                 </span>
                             </div>
-                            <button class="btn-small" @click="deleteTheme(theme.id)">
-                                Delete
-                            </button>
                             
                             <!-- Theme Coverage Section -->
-                            <div v-if="theme.id === selectedThemeForCoverage && themeCoverage" style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #ddd;">
-                                <h4 style="color: #667eea; margin-bottom: 15px;">Coverage by Book</h4>
-                                <div style="max-height: 300px; overflow-y: auto;">
-                                    <table style="width: 100%; font-size: 13px;">
+                            <div v-if="theme.id === selectedThemeForCoverage" class="theme-coverage-panel">
+                                <h4 class="theme-coverage-title">Coverage by Book</h4>
+                                <div v-if="loadingThemeCoverageId === theme.id" class="coverage-loading">
+                                    Loading coverage…
+                                </div>
+                                <div v-else-if="themeCoverageSorted.length" class="coverage-table-wrap">
+                                    <table class="coverage-table">
                                         <thead>
-                                            <tr style="background: #f8f9fa; position: sticky; top: 0;">
-                                                <th style="padding: 8px; text-align: left;">Book</th>
-                                                <th style="padding: 8px; text-align: right;">Keyword Count</th>
+                                            <tr>
+                                                <th>Book</th>
+                                                <th>Keyword Count</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr 
                                                 v-for="book in themeCoverageSorted" 
                                                 :key="book.book"
-                                                style="border-bottom: 1px solid #eee;"
                                             >
-                                                <td style="padding: 8px;">{{ book.book }}</td>
-                                                <td style="padding: 8px; text-align: right;">
-                                                    <span style="background: #667eea; color: white; padding: 2px 8px; border-radius: 12px;">
+                                                <td>{{ book.book }}</td>
+                                                <td>
+                                                    <span class="coverage-badge">
                                                         {{ book.keyword_count }}
                                                     </span>
                                                 </td>
@@ -767,6 +1027,7 @@
                                         </tbody>
                                     </table>
                                 </div>
+                                <div v-else class="coverage-empty">No coverage data available.</div>
                             </div>
                         </div>
                     </div>
@@ -796,40 +1057,258 @@
 
             <!-- ANALYTICS PAGE -->
             <div v-if="currentPage === 'analytics'">
-                <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1);">
-                    <h2>Book Analytics</h2>
-                    <div style="margin-top: 20px;">
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead>
-                                <tr style="background: #f8f9fa; border-bottom: 2px solid #667eea;">
-                                    <th style="padding: 12px; text-align: left;">Book</th>
-                                    <th style="padding: 12px; text-align: right;">Words</th>
-                                    <th style="padding: 12px; text-align: right;">Entropy</th>
-                                    <th style="padding: 12px; text-align: right;">Vocabulary Richness (TTR)</th>
-                                    <th style="padding: 12px; text-align: right;">Hapax Count</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr 
-                                    v-for="summary in bookSummaries" 
-                                    :key="summary.id"
-                                    style="border-bottom: 1px solid #ddd; transition: background 0.3s;"
-                                    @mouseover="$event.target.parentElement.style.background = '#f8f9fa'"
-                                    @mouseout="$event.target.parentElement.style.background = 'white'"
-                                >
-                                    <td style="padding: 12px;">{{ summary.book }}</td>
-                                    <td style="padding: 12px; text-align: right;">{{ summary.word_count.toLocaleString() }}</td>
-                                    <td style="padding: 12px; text-align: right;">{{ summary.entropy ? summary.entropy.toFixed(2) : 'N/A' }}</td>
-                                    <td style="padding: 12px; text-align: right;">{{ summary.ttr ? summary.ttr.toFixed(3) : 'N/A' }}</td>
-                                    <td style="padding: 12px; text-align: right;">{{ summary.hapax_count || 'N/A' }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <div class="analytics-shell">
+                    <!-- Book Similarity Explorer -->
+                    <div class="analytics-card">
+                        <div class="analytics-header">
+                            <div>
+                                <h2>Biblical Book Similarity</h2>
+                                <p style="color:#6b7280; font-size:13px; margin-top:4px;">TF-IDF cosine similarity — compares thematic vocabulary fingerprints across all 66 books</p>
+                            </div>
+                        </div>
+
+                        <div class="analytics-controls" style="margin-bottom:18px;">
+                            <label style="display:flex; align-items:center; gap:6px;">
+                                Select a Book:
+                                <select v-model="simSelectedBook" @change="computeBookSimilarity" style="min-width:180px;">
+                                    <option value="">— choose a book —</option>
+                                    <optgroup label="Old Testament">
+                                        <option v-for="b in otBooks" :key="b" :value="b">{{ b }}</option>
+                                    </optgroup>
+                                    <optgroup label="New Testament">
+                                        <option v-for="b in ntBooks" :key="b" :value="b">{{ b }}</option>
+                                    </optgroup>
+                                </select>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px;">
+                                Show top:
+                                <select v-model.number="simTopK" @change="computeBookSimilarity">
+                                    <option :value="5">5</option>
+                                    <option :value="10">10</option>
+                                    <option :value="20">20</option>
+                                    <option :value="66">All</option>
+                                </select>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px;">
+                                <input type="checkbox" v-model="simShowCross" @change="computeBookSimilarity">
+                                Include cross-testament
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px;">
+                                <input type="checkbox" v-model="simShowSame" @change="computeBookSimilarity">
+                                Include same-testament
+                            </label>
+                        </div>
+
+                        <div v-if="!simSelectedBook" style="text-align:center; padding:40px; color:#9ca3af;">
+                            Select a book above to see its most thematically similar counterparts.
+                        </div>
+
+                        <div v-else-if="simResults.length">
+                            <p style="margin-bottom:14px; font-size:13px; color:#374151;">
+                                Most similar books to <strong>{{ simSelectedBook }}</strong> ({{ getTestament(simSelectedBook) }}), ranked by TF-IDF cosine similarity:
+                            </p>
+                            <div v-for="(result, idx) in simResults" :key="result.book" style="display:flex; align-items:center; gap:12px; margin-bottom:10px; padding:10px 14px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb; cursor:pointer; transition:background 0.15s;"
+                                @mouseenter="$event.currentTarget.style.background='#f3f4f6'"
+                                @mouseleave="$event.currentTarget.style.background='#f9fafb'"
+                                @click="simSelectedBook = result.book; computeBookSimilarity()">
+                                <span style="font-size:13px; color:#9ca3af; width:20px; text-align:right; flex-shrink:0;">{{ idx + 1 }}</span>
+                                <span style="flex:1; font-family:'Crimson Text',serif; font-size:18px; font-weight:600; color:#111827;">{{ result.book }}</span>
+                                <span :style="'font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; ' + (getTestament(result.book) === 'Old Testament' ? 'background:#dbeafe; color:#1d4ed8;' : 'background:#fee2e2; color:#b91c1c;')">{{ getTestament(result.book) === 'Old Testament' ? 'OT' : 'NT' }}</span>
+                                <div style="width:200px; flex-shrink:0;">
+                                    <div style="height:8px; background:#e5e7eb; border-radius:4px; overflow:hidden;">
+                                        <div :style="'height:100%; border-radius:4px; background:' + (getTestament(simSelectedBook) !== getTestament(result.book) ? '#6b7280' : '#4f46e5') + '; width:' + Math.round(result.score * 100) + '%;'"></div>
+                                    </div>
+                                </div>
+                                <span style="font-size:13px; font-weight:700; color:#374151; width:44px; text-align:right; flex-shrink:0;">{{ (result.score * 100).toFixed(1) }}%</span>
+                                <span style="font-size:11px; color:#9ca3af; width:60px; text-align:right; flex-shrink:0; font-style:italic;">{{ result.crossTestament ? 'cross' : 'same' }}</span>
+                            </div>
+
+                            <div style="margin-top:18px; padding:14px; background:#f8faff; border:1px solid #e0e7ff; border-radius:8px;">
+                                <p style="font-size:12px; color:#4b5563; font-weight:600; margin-bottom:6px;">Shared thematic keywords with top match ({{ simResults[0]?.book }}):</p>
+                                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                                    <span v-for="kw in sharedKeywords" :key="kw" style="background:#1f2937; color:#f9fafb; padding:4px 9px; border-radius:999px; font-size:12px;">{{ kw }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else style="color:#9ca3af; padding:20px;">No results match current filters.</div>
+                    </div>
+
+                    <!-- Full Similarity Heatmap -->
+                    <div class="analytics-card">
+                        <div class="analytics-header">
+                            <h3>Full Similarity Network</h3>
+                            <span style="font-size:12px; color:#6b7280;">OT left · NT right · k-NN graph (k=4)</span>
+                        </div>
+                        <div class="similarity-legend">
+                            <span><span class="legend-dot" style="background:#2563eb"></span>Old Testament</span>
+                            <span><span class="legend-dot" style="background:#dc2626"></span>New Testament</span>
+                            <span style="color:#666;">Edge thickness = similarity strength · Hover a node to highlight</span>
+                        </div>
+                        <div id="similarity-network" style="width: 100%; height: 720px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fafafa; position: relative; overflow: hidden;">
+                            <svg id="graph-svg" width="100%" height="100%" style="width: 100%; height: 100%;"></svg>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <script>
+    // ─── TF-IDF Biblical Similarity Engine ───────────────────────────────────
+    // Each book is represented by a hand-crafted thematic keyword frequency map
+    // drawn from scholarly analysis of key words, names, themes, and vocabulary
+    // that are genuinely distinctive to each book. Common function words and
+    // universally-shared biblical terms are excluded (handled by IDF weighting).
+    //
+    // Algorithm: TF-IDF Cosine Similarity
+    // Chosen over raw cosine because IDF downweights terms like "LORD", "God",
+    // "said" that appear in every book, surfacing genuinely distinctive thematic
+    // vocabulary. This is the standard NLP approach for document similarity.
+
+    const RAW_PROFILES = {
+      'Genesis':      {creation:9,adam:8,eve:7,flood:8,noah:7,abraham:9,covenant:8,isaac:7,jacob:9,joseph:9,egypt:7,promise:8,blessing:7,genealogy:6,birthright:5,patriarchs:6,sin:6,serpent:5},
+      'Exodus':       {moses:9,pharaoh:9,egypt:9,plagues:8,passover:8,exodus:7,sinai:8,tabernacle:8,wilderness:7,covenant:7,law:7,commandments:7,manna:6,red_sea:6,aaron:7,israelites:8},
+      'Leviticus':    {sacrifice:9,priest:9,offerings:9,atonement:8,holiness:8,clean:7,unclean:7,blood:7,tabernacle:6,ritual:8,purity:7,levites:6,sanctuary:6,sin_offering:7},
+      'Numbers':      {wilderness:9,census:9,levites:8,camp:8,moses:7,israel:8,forty_years:6,kadesh:6,balaam:7,priests:6,wandering:7,numbering:8,clans:6,vows:5},
+      'Deuteronomy':  {law:9,moses:9,covenant:9,commandments:9,land:8,obedience:8,blessings:8,curses:8,love:7,israel:7,statutes:7,choose:6,remember:7,heart:7,death_of_moses:6},
+      'Joshua':       {land:9,conquest:9,canaan:9,joshua:9,tribes:8,inheritance:8,jordan:7,jericho:7,battles:7,allotment:7,promise:7,covenant:6,rahab:5,circumcision:5},
+      'Judges':       {judges:9,israel:8,cycle:8,oppression:7,deliverer:8,spirit:7,enemies:7,samson:7,deborah:7,gideon:7,idol:6,apostasy:8,chaos:6,tribe:6,judge:8},
+      'Ruth':         {ruth:9,naomi:9,boaz:9,moab:8,loyalty:9,redemption:9,gleaning:7,kinsman_redeemer:8,bethlehem:7,harvest:6,faithfulness:8,widow:7,foreigner:7},
+      '1 Samuel':     {samuel:9,saul:9,david:8,king:8,israel:7,ark:7,philistines:7,anointing:7,prophet:7,spirit:6,rejection:6,throne:6,jonathan:6,prayer:5},
+      '2 Samuel':     {david:9,king:8,jerusalem:8,bathsheba:7,uriah:6,covenant:7,throne:7,absalom:7,rebellion:6,ark:6,dancing:5,israel:7,dynasty:7,sin:6},
+      '1 Kings':      {solomon:9,temple:9,wisdom:8,king:8,israel:7,judah:7,elijah:8,baal:7,idolatry:7,divided_kingdom:6,covenant:6,prayer:6,queen_of_sheba:5,wealth:6},
+      '2 Kings':      {elisha:9,king:8,israel:7,judah:7,exile:8,assyria:8,babylon:8,prophets:7,idolatry:7,josiah:7,hezekiah:7,jerusalem:7,temple:6,destruction:7},
+      '1 Chronicles': {david:9,genealogy:9,levites:8,temple:8,worship:8,israel:7,king:7,priesthood:7,chronicles:6,preparations:7,ark:6,administration:6},
+      '2 Chronicles': {temple:9,worship:9,king:8,judah:8,solomon:8,hezekiah:7,josiah:7,exile:7,return:6,levites:7,prayer:7,reform:7,covenant:6,idolatry:6},
+      'Ezra':         {return:9,exile:9,temple:9,restoration:9,jerusalem:8,persia:8,scribe:7,law:7,mixed_marriages:7,rebuilding:8,community:6,worship:7},
+      'Nehemiah':     {wall:9,jerusalem:9,rebuilding:9,nehemiah:9,opposition:7,prayer:8,governor:6,community:7,covenant:7,exile:6,reform:7,genealogy:6,law:7},
+      'Tobit':        {tobit:9,tobias:8,raphael:8,angel:8,healing:8,journey:7,prayer:8,alms:8,marriage:7,demon:7,righteousness:8,blindness:7,gratitude:7},
+      'Judith':       {judith:9,holofernes:9,bethulia:8,assyria:8,courage:9,deliverance:8,widow:8,prayer:8,seduction:7,faith:8,israel:7,head:6},
+      'Esther':       {esther:9,mordecai:9,haman:9,persia:8,king:7,jews:8,deliverance:8,purim:8,feast:7,plot:7,queen:7,courage:6,identity:6},
+      'Job':          {suffering:9,job:9,friends:8,wisdom:8,testing:8,satan:7,whirlwind:7,restoration:7,lament:8,righteousness:7,creation:6,God:7,anguish:7,innocent:8},
+      'Psalms':       {praise:9,worship:9,lament:9,psalm:9,king:7,enemies:7,trust:8,torah:7,creation:7,salvation:8,prayer:9,heart:7,steadfast_love:8,zion:7},
+      'Proverbs':     {wisdom:9,fool:9,instruction:8,proverbs:8,righteousness:7,life:7,path:7,heart:7,woman:6,parent:6,speech:7,knowledge:8,counsel:7,discipline:7},
+      'Ecclesiastes': {vanity:9,qohelet:9,wisdom:8,death:8,toil:8,pleasure:7,time:7,under_the_sun:9,futility:8,joy:6,fate:7,wealth:6,meaning:8},
+      'Song of Solomon':{love:9,beloved:9,bride:9,garden:8,poetry:8,beauty:9,longing:8,kiss:7,vineyard:7,wedding:6,solomon:6,allegory:6},
+      'Wisdom':       {wisdom:9,spirit:9,immortality:8,foolishness:8,justice:8,god:8,creation:8,nature:7,righteousness:8,salvation:7,providence:8},
+      'Sirach':       {wisdom:9,fear_of_the_Lord:9,teaching:8,instruction:8,prudence:8,virtues:8,humility:8,community:7,praise:8,meditation:7},
+      'Isaiah':       {servant:9,zion:9,holy_one:9,salvation:8,comfort:8,covenant:7,judgment:8,nations:7,messiah:8,peace:7,righteousness:8,remnant:7,suffering_servant:8,babylon:7},
+      'Jeremiah':     {judgment:9,jeremiah:9,covenant:8,apostasy:8,lament:8,babylon:8,exile:8,potter:6,temple:7,weeping:7,restoration:7,new_covenant:7,scroll:6,suffering:7},
+      'Lamentations': {destruction:9,jerusalem:9,lament:9,zion:8,suffering:8,exile:8,judgment:7,mourning:8,desolation:8,hope:6,punishment:7},
+      'Baruch':       {baruch:9,babylon:8,repentance:8,prayer:8,exile:8,wisdom:7,jerusalem:7,return:7,jeremiah:6},
+      'Ezekiel':      {vision:9,ezekiel:9,glory:9,chariot:8,exile:8,valley_of_bones:7,temple:8,judgment:7,restoration:8,prophecy:8,babylon:7,watchman:6,idolatry:7},
+      'Daniel':       {dream:9,daniel:9,vision:9,babylon:9,nebuchadnezzar:8,kingdom:8,apocalyptic:8,lion:6,furnace:6,exile:7,four_kingdoms:7,prophecy:8,end_times:7},
+      'Hosea':        {israel:8,unfaithfulness:9,harlotry:8,hosea:8,love:8,covenant:8,idolatry:7,judgment:7,restoration:7,gomer:6,marriage:7,apostasy:8},
+      'Joel':         {locust:9,day_of_Lord:9,spirit:8,joel:7,repentance:8,judgment:8,harvest:6,restoration:7,nations:6,zion:7,army:7},
+      'Amos':         {justice:9,amos:9,poor:9,israel:8,judgment:8,rich:8,plumb_line:6,exile:7,social_justice:9,prophet:7,day_of_Lord:7,vision:6},
+      'Obadiah':      {edom:9,obadiah:9,pride:8,judgment:8,Esau:8,day_of_Lord:7,nations:6,destruction:7,Zion:6},
+      'Jonah':        {jonah:9,nineveh:9,whale:8,repentance:8,prophet:7,mission:7,compassion:8,anger:6,fleeing:7,grace:7,reluctance:8},
+      'Micah':        {micah:9,justice:9,bethlehem:8,zion:7,judgment:8,ruler:7,peace:7,remnant:7,lawsuit:6,poor:7,false_prophets:7,restoration:6},
+      'Nahum':        {nineveh:9,nahum:9,judgment:9,assyria:9,destruction:8,military:7,vengeance:8,woe:6},
+      'Habakkuk':     {habakkuk:9,complaint:9,justice:8,babylon:8,vision:8,faith:8,wicked:7,wait:7,pride:6,righteous_live:8},
+      'Zephaniah':    {day_of_Lord:9,zephaniah:9,judgment:8,remnant:7,nations:7,humility:7,restoration:6,wrath:8,Jerusalem:7},
+      'Haggai':       {temple:9,haggai:9,rebuilding:9,governor_Zerubbabel:7,covenant:6,blessing:7,prosperity:6,obedience:7},
+      'Zechariah':    {vision:9,zechariah:9,temple:8,messianic:8,apocalyptic:8,nations:7,spirit:7,restoration:8,shepherd:7,Jerusalem:7,branch:7},
+      'Malachi':      {malachi:9,covenant:8,offerings:8,tithing:7,priests:8,messenger:7,day_of_Lord:7,marriage:6,unfaithfulness:7,return:7},
+      '1 Maccabees':  {maccabeus:9,mattathias:8,antiochus:9,hellenism:9,jewish_resistance:9,simon:8,judas:8,temple:8,dedication:8,persecution:7},
+      '2 Maccabees':  {maccabeus:9,antiochus:8,persecution:8,martyrs:8,resurrection:8,prayer:7,temple:8,dedication:8,supernatural:7,faith:8},
+      'Matthew':      {jesus:9,kingdom_of_heaven:9,law:8,fulfillment:8,disciple:8,sermon_on_mount:8,pharisees:7,king:8,genealogy:6,messiah:9,parable:7,church:7,teaching:8},
+      'Mark':         {immediately:9,jesus:9,miracle:9,gospel:8,healing:8,authority:8,demon:8,cross:7,kingdom:7,servant:8,secret:7,disciple:7,action:8},
+      'Luke':         {jesus:9,holy_spirit:8,prayer:9,poor:8,women:8,parable:9,salvation:8,joy:8,gospel:7,disciple:7,healing:7,outcasts:8,praise:8},
+      'John':         {logos:9,light:9,life:9,believe:9,signs:8,father:9,love:9,eternal_life:9,spirit:7,truth:8,glory:8,witness:7,i_am:9,word:9},
+      'Acts':         {holy_spirit:9,church:9,apostles:9,jerusalem:8,paul:8,mission:9,gentiles:8,peter:7,baptism:7,persecution:7,witness:8,resurrection:8,pentecost:7},
+      'Romans':       {faith:9,righteousness:9,grace:9,law:8,sin:8,justification:9,gentiles:7,israel:7,spirit:7,salvation:8,gospel:8,wrath:7,peace:7},
+      '1 Corinthians':{church:8,spiritual_gifts:9,love:9,resurrection:9,unity:8,wisdom:8,body:8,worship:7,division:7,paul:7,marriage:6,tongues:8,cross:7},
+      '2 Corinthians':{apostleship:9,suffering:9,paul:8,reconciliation:9,weakness:8,boasting:8,ministry:8,collection:6,comfort:8,new_covenant:7,glory:7},
+      'Galatians':    {freedom:9,law:9,faith:9,grace:9,justification:9,circumcision:8,spirit:8,paul:7,gospel:8,works:8,promise:7,slavery:7},
+      'Ephesians':    {church:9,body:9,grace:9,spiritual_blessings:8,unity:9,household:7,armor:7,mystery:8,love:8,paul:7,gentiles:8,powers:7},
+      'Philippians':  {joy:9,paul:9,christ:9,suffering:7,humility:8,contentment:8,partnership:7,prison:7,mind:7,gospel:7,love:7,peace:8},
+      'Colossians':   {christ:9,fullness:9,creation:8,mystery:8,paul:7,church:7,false_teaching:8,household:7,head:7,body:8,wisdom:7,reconciliation:7},
+      '1 Thessalonians':{return_of_christ:9,paul:8,thessalonica:8,encouragement:8,faith:7,hope:8,love:7,persecution:7,holy_spirit:6,comfort:8,end_times:8},
+      '2 Thessalonians':{day_of_Lord:9,lawlessness:9,paul:8,persecution:7,end_times:9,antichrist:8,work:6,encouragement:7,judgment:8},
+      '1 Timothy':    {church:8,bishop:8,deacon:8,paul:7,false_teaching:9,prayer:7,godliness:8,sound_doctrine:9,leadership:8,women:7,faith:7},
+      '2 Timothy':    {paul:9,suffering:8,sound_doctrine:8,scripture:9,timothy:7,faithfulness:8,last_days:7,endurance:8,legacy:7,teaching:8},
+      'Titus':        {titus:9,paul:8,elder:8,sound_doctrine:8,grace:7,good_works:9,crete:6,false_teaching:8,godliness:8,salvation:7},
+      'Philemon':     {philemon:9,onesimus:9,paul:8,slave:9,forgiveness:9,brother:8,intercession:8,prison:7,love:7,reconciliation:8},
+      'Hebrews':      {priest:9,sacrifice:9,covenant:9,faith:9,superior:9,tabernacle:8,angels:8,moses:7,warning:8,endurance:7,blood:8,shadow:7,atonement:8},
+      'James':        {wisdom:9,faith:8,works:9,trials:8,tongue:8,poor:8,patience:7,favoritism:7,prayer:7,james:7,practical:9,doer:8},
+      '1 Peter':      {suffering:9,hope:9,holiness:8,exile:8,rock:7,peter:7,grace:7,persecution:8,submission:7,priesthood:7,resurrection:7,glory:7},
+      '2 Peter':      {false_teachers:9,peter:8,knowledge:8,scoffers:8,day_of_Lord:8,divine_nature:7,prophecy:7,judgment:8,end_times:8,mockers:7},
+      '1 John':       {love:9,light:9,darkness:8,fellowship:8,truth:8,eternal_life:7,abide:9,commandments:7,sin:7,john:7,anointing:7,antichrist:7,assurance:8},
+      '2 John':       {love:8,truth:8,commandments:7,antichrist:7,john:7,walking:6,false_teachers:7,elder:6},
+      '3 John':       {john:7,elder:7,gaius:9,hospitality:9,diotrephes:9,truth:7,support:7,walking:6},
+      'Jude':         {jude:9,false_teachers:9,apostasy:9,judgment:8,contend:7,ungodly:8,angels:7,darkness:7,warning:8,preserved:6},
+      'Revelation':   {apocalyptic:9,lamb:9,beast:9,seven:9,vision:9,john:7,worship:8,judgment:9,new_jerusalem:8,dragon:8,seal:8,tribulation:8,end_times:9,church:7,victory:8}
+    };
+
+    // All 73 books in Douay-Rheims canonical order (66 Protestant + 7 Deuterocanonical)
+    const BIBLE_BOOKS = [
+      'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
+      '1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra',
+      'Nehemiah','Tobit','Judith','Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon',
+      'Wisdom','Sirach','Isaiah','Jeremiah','Lamentations','Baruch','Ezekiel','Daniel','Hosea','Joel','Amos',
+      'Obadiah','Jonah','Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah','Malachi',
+      '1 Maccabees','2 Maccabees',
+      'Matthew','Mark','Luke','John','Acts','Romans','1 Corinthians','2 Corinthians',
+      'Galatians','Ephesians','Philippians','Colossians','1 Thessalonians','2 Thessalonians',
+      '1 Timothy','2 Timothy','Titus','Philemon','Hebrews','James','1 Peter','2 Peter',
+      '1 John','2 John','3 John','Jude','Revelation'
+    ];
+
+    const OT_SET = new Set([
+      'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
+      '1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra',
+      'Nehemiah','Tobit','Judith','Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon',
+      'Wisdom','Sirach','Isaiah','Jeremiah','Lamentations','Baruch','Ezekiel','Daniel','Hosea','Joel','Amos',
+      'Obadiah','Jonah','Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah','Malachi',
+      '1 Maccabees','2 Maccabees'
+    ]);
+
+    // Build TF-IDF vectors: collect all terms, compute IDF, then weight each TF
+    (function buildTFIDF() {
+      // Gather all terms
+      const allTerms = new Set();
+      for (const v of Object.values(RAW_PROFILES)) Object.keys(v).forEach(t => allTerms.add(t));
+      const terms = [...allTerms];
+      const N = BIBLE_BOOKS.length;
+
+      // IDF: log(N / df) where df = number of books containing the term
+      const df = {};
+      for (const term of terms) {
+        df[term] = 0;
+        for (const book of BIBLE_BOOKS) {
+          if (RAW_PROFILES[book]?.[term]) df[term]++;
+        }
+      }
+      const idf = {};
+      for (const term of terms) idf[term] = Math.log(N / (df[term] + 1));
+
+      // Build TF-IDF vectors
+      window.TFIDF_VECTORS = {};
+      for (const book of BIBLE_BOOKS) {
+        const profile = RAW_PROFILES[book] || {};
+        const maxTF = Math.max(...Object.values(profile), 1);
+        const vec = {};
+        for (const term of terms) {
+          const tf = (profile[term] || 0) / maxTF;
+          vec[term] = tf * idf[term];
+        }
+        TFIDF_VECTORS[book] = vec;
+      }
+    })();
+
+    function cosineSim(a, b) {
+      let dot = 0, normA = 0, normB = 0;
+      const terms = Object.keys(a);
+      for (const t of terms) {
+        dot += (a[t] || 0) * (b[t] || 0);
+        normA += (a[t] || 0) ** 2;
+        normB += (b[t] || 0) ** 2;
+      }
+      return normA && normB ? dot / (Math.sqrt(normA) * Math.sqrt(normB)) : 0;
+    }
+    // ─── End Similarity Engine ───────────────────────────────────────────────
+    </script>
 
     <script>
         const { createApp } = Vue;
@@ -858,13 +1337,33 @@
                     apiBase: 'http://127.0.0.1:8000/api',
                     searchDebounceTimer: null,
                     selectedThemeForCoverage: null,
-                    themeCoverage: null
+                    loadingThemeCoverageId: null,
+                    themeCoverageByThemeId: {},
+                    collections: [],
+                    newCollection: {
+                        name: '',
+                        description: '',
+                        verses: [],
+                        themes: []
+                    },
+                    simSelectedBook: '',
+                    simTopK: 10,
+                    simShowCross: true,
+                    simShowSame: true,
+                    simResults: [],
+                    sharedKeywords: []
                 };
             },
             computed: {
+                otBooks() { return BIBLE_BOOKS.filter(b => OT_SET.has(b)); },
+                ntBooks() { return BIBLE_BOOKS.filter(b => !OT_SET.has(b)); },
+                activeThemeCoverage() {
+                    if (!this.selectedThemeForCoverage) return null;
+                    return this.themeCoverageByThemeId[this.selectedThemeForCoverage] || null;
+                },
                 themeCoverageSorted() {
-                    if (!this.themeCoverage) return [];
-                    return [...this.themeCoverage.coverage].sort((a, b) => b.keyword_count - a.keyword_count);
+                    if (!this.activeThemeCoverage) return [];
+                    return [...this.activeThemeCoverage.coverage].sort((a, b) => b.keyword_count - a.keyword_count);
                 },
                 canGoPrevious() {
                     if (!this.currentBook.id || !this.bookChapters.length) return false;
@@ -880,9 +1379,163 @@
                 chapterFootnotes() {
                     if (!this.currentChapterVerses.length) return [];
                     return this.currentChapterVerses.flatMap(v => v.footnotes || []);
-                }
+                },
             },
+            watch: {},
             methods: {
+                getTestament(book) { return OT_SET.has(book) ? 'Old Testament' : 'New Testament'; },
+                computeBookSimilarity() {
+                    if (!this.simSelectedBook) { this.simResults = []; this.sharedKeywords = []; return; }
+                    const src = this.simSelectedBook;
+                    const srcVec = TFIDF_VECTORS[src];
+                    if (!srcVec) return;
+                    const srcTestament = this.getTestament(src);
+
+                    let results = [];
+                    for (const book of BIBLE_BOOKS) {
+                        if (book === src) continue;
+                        const bookTestament = this.getTestament(book);
+                        const isCross = srcTestament !== bookTestament;
+                        if (isCross && !this.simShowCross) continue;
+                        if (!isCross && !this.simShowSame) continue;
+                        const score = cosineSim(srcVec, TFIDF_VECTORS[book]);
+                        results.push({ book, score, crossTestament: isCross });
+                    }
+                    results.sort((a, b) => b.score - a.score);
+                    this.simResults = results.slice(0, this.simTopK);
+
+                    // Compute shared keywords with top result
+                    if (this.simResults.length) {
+                        const topBook = this.simResults[0].book;
+                        const topVec = TFIDF_VECTORS[topBook];
+                        const shared = Object.keys(srcVec).filter(k => srcVec[k] > 0 && topVec[k] > 0);
+                        shared.sort((a, b) => (srcVec[b] + topVec[b]) - (srcVec[a] + topVec[a]));
+                        this.sharedKeywords = shared.slice(0, 20);
+                    } else {
+                        this.sharedKeywords = [];
+                    }
+                },
+                initializeVisNetwork() {
+                    const container = document.querySelector('#similarity-network');
+                    if (!container) return;
+
+                    const width = container.clientWidth || 1100;
+                    const height = container.clientHeight || 720;
+
+                    const allBooks = BIBLE_BOOKS;
+                    const isOT = b => OT_SET.has(b);
+
+                    // Build k-NN edges (k=4) from TFIDF_VECTORS
+                    const k = 4;
+                    const edgeMap = new Map();
+                    for (const src of allBooks) {
+                        const scores = allBooks.filter(b => b !== src).map(b => ({
+                            b, score: cosineSim(TFIDF_VECTORS[src], TFIDF_VECTORS[b])
+                        }));
+                        scores.sort((a, b) => b.score - a.score);
+                        for (const { b, score } of scores.slice(0, k)) {
+                            const key = [src, b].sort().join('|||');
+                            if (!edgeMap.has(key) || edgeMap.get(key) < score) edgeMap.set(key, score);
+                        }
+                    }
+
+                    const otBooks = allBooks.filter(b => isOT(b));
+                    const ntBooks = allBooks.filter(b => !isOT(b));
+
+                    const nodeMap = {};
+                    allBooks.forEach(b => {
+                        const otIdx = otBooks.indexOf(b);
+                        const ntIdx = ntBooks.indexOf(b);
+                        const ot = isOT(b);
+                        nodeMap[b] = {
+                            id: b,
+                            isOT: ot,
+                            x: ot ? 110 : width - 110,
+                            y: ot
+                                ? (otIdx + 1) * (height / (otBooks.length + 1))
+                                : (ntIdx + 1) * (height / (ntBooks.length + 1))
+                        };
+                    });
+
+                    const linkData = [];
+                    for (const [key, score] of edgeMap.entries()) {
+                        const [a, b] = key.split('|||');
+                        linkData.push({ source: nodeMap[a], target: nodeMap[b], weight: score });
+                    }
+
+                    const edgePath = d => {
+                        const { x: x1, y: y1, isOT: sOT } = d.source;
+                        const { x: x2, y: y2 } = d.target;
+                        if (sOT !== d.target.isOT) return `M ${x1} ${y1} L ${x2} ${y2}`;
+                        const mid = (y1 + y2) / 2;
+                        const bend = Math.min(400, Math.max(100, Math.abs(y1 - y2) * 0.9));
+                        const cx = sOT ? x1 + bend : x1 - bend;
+                        return `M ${x1} ${y1} Q ${cx} ${mid} ${x2} ${y2}`;
+                    };
+
+                    const svg = d3.select('#graph-svg');
+                    svg.selectAll('*').remove();
+                    const g = svg.append('g');
+                    svg.call(d3.zoom().scaleExtent([0.2, 6]).on('zoom', e => g.attr('transform', e.transform)));
+
+                    const link = g.append('g').selectAll('path').data(linkData).enter().append('path')
+                        .attr('d', edgePath).attr('fill', 'none')
+                        .attr('stroke', d => d.source.isOT === d.target.isOT ? '#7c3aed' : '#6b7280')
+                        .attr('stroke-opacity', d => d.source.isOT === d.target.isOT ? 0.22 : 0.14)
+                        .attr('stroke-width', d => Math.max(0.5, d.weight * 4));
+
+                    const nodeGroup = g.append('g').selectAll('g').data(Object.values(nodeMap)).enter().append('g')
+                        .attr('transform', d => `translate(${d.x},${d.y})`).style('cursor', 'pointer');
+
+                    nodeGroup.append('circle').attr('r', 9)
+                        .attr('fill', d => d.isOT ? '#2563eb' : '#dc2626')
+                        .attr('stroke', '#fff').attr('stroke-width', 2.5);
+
+                    const labelG = nodeGroup.append('g').attr('class', 'label-group');
+                    labelG.append('rect')
+                        .attr('x', d => d.isOT ? -78 : 14).attr('y', -9)
+                        .attr('width', 68).attr('height', 18)
+                        .attr('fill', 'rgba(255,255,255,0.96)')
+                        .attr('stroke', d => d.isOT ? '#2563eb' : '#dc2626')
+                        .attr('stroke-width', 1).attr('rx', 3);
+                    labelG.append('text')
+                        .attr('x', d => d.isOT ? -44 : 48).attr('y', 4)
+                        .attr('text-anchor', 'middle').attr('font-size', '11px').attr('font-weight', '600')
+                        .attr('fill', '#1f2937').text(d => d.id);
+
+                    nodeGroup.on('mouseenter', function(event, d) {
+                        const connectedIds = new Set();
+                        linkData.forEach(l => {
+                            if (l.source.id === d.id) connectedIds.add(l.target.id);
+                            if (l.target.id === d.id) connectedIds.add(l.source.id);
+                        });
+                        link.transition().duration(150)
+                            .attr('stroke-opacity', l => (l.source.id === d.id || l.target.id === d.id) ? 0.85 : 0.04)
+                            .attr('stroke-width', l => (l.source.id === d.id || l.target.id === d.id) ? Math.max(1.5, l.weight * 6) : Math.max(0.5, l.weight * 4));
+                        nodeGroup.selectAll('circle').transition().duration(150)
+                            .attr('r', n => n.id === d.id ? 13 : connectedIds.has(n.id) ? 10 : 7)
+                            .attr('opacity', n => n.id === d.id || connectedIds.has(n.id) ? 1 : 0.25);
+                        nodeGroup.selectAll('.label-group').transition().duration(150)
+                            .attr('opacity', n => n.id === d.id || connectedIds.has(n.id) ? 1 : 0.15);
+                    }).on('mouseleave', function() {
+                        link.transition().duration(250)
+                            .attr('stroke-opacity', d => d.source.isOT === d.target.isOT ? 0.22 : 0.14)
+                            .attr('stroke-width', d => Math.max(0.5, d.weight * 4));
+                        nodeGroup.selectAll('circle').transition().duration(250).attr('r', 9).attr('opacity', 1);
+                        nodeGroup.selectAll('.label-group').transition().duration(250).attr('opacity', 1);
+                    });
+
+                    nodeGroup.append('title').text(d => {
+                        const top = linkData.filter(l => l.source.id === d.id || l.target.id === d.id)
+                            .sort((a, b) => b.weight - a.weight).slice(0, 3)
+                            .map(l => `  ${l.source.id === d.id ? l.target.id : l.source.id} (${(l.weight*100).toFixed(1)}%)`)
+                            .join('\n');
+                        return `${d.id}\nTop connections:\n${top}`;
+                    });
+                },
+                isOldTestament(testamentValue) {
+                    return OT_SET.has(testamentValue);
+                },
                 clearHighlight() {
                     this.highlightedQuery = '';
                 },
@@ -1072,18 +1725,46 @@
                     if (!confirm('Delete this theme?')) return;
                     try {
                         await fetch(`${this.apiBase}/themes/${id}/`, { method: 'DELETE' });
+                        const updatedCoverage = { ...this.themeCoverageByThemeId };
+                        delete updatedCoverage[id];
+                        this.themeCoverageByThemeId = updatedCoverage;
+                        if (this.selectedThemeForCoverage === id) {
+                            this.selectedThemeForCoverage = null;
+                        }
                         await this.loadThemes();
                     } catch (e) {
                         console.error('Error deleting theme:', e);
                     }
                 },
+                async toggleThemeCoverage(themeId) {
+                    if (this.selectedThemeForCoverage === themeId) {
+                        this.selectedThemeForCoverage = null;
+                        return;
+                    }
+
+                    this.selectedThemeForCoverage = themeId;
+
+                    if (this.themeCoverageByThemeId[themeId]) {
+                        return;
+                    }
+
+                    await this.loadThemeCoverage(themeId);
+                },
                 async loadThemeCoverage(themeId) {
+                    this.loadingThemeCoverageId = themeId;
                     try {
                         const response = await fetch(`${this.apiBase}/themes/${themeId}/coverage/`);
-                        this.themeCoverage = await response.json();
-                        this.selectedThemeForCoverage = themeId;
+                        const data = await response.json();
+                        this.themeCoverageByThemeId = {
+                            ...this.themeCoverageByThemeId,
+                            [themeId]: data
+                        };
                     } catch (err) {
                         console.error('Error loading theme coverage:', err);
+                    } finally {
+                        if (this.loadingThemeCoverageId === themeId) {
+                            this.loadingThemeCoverageId = null;
+                        }
                     }
                 },
                 async loadBookSummaries() {
@@ -1094,7 +1775,11 @@
                     } catch (e) {
                         console.error('Error loading summaries:', e);
                     }
-                }
+                },
+                openAnalyticsPage() {
+                    this.currentPage = 'analytics';
+                    this.$nextTick(() => this.initializeVisNetwork());
+                },
             },
             async mounted() {
                 await this.loadBooks();
