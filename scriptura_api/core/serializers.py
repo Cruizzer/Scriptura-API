@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Book, Chapter, Verse, Section, Footnote
+from .models import Book, Chapter, Verse, Section, Footnote, Collection
 
 
 class FootnoteSerializer(serializers.ModelSerializer):
@@ -91,3 +91,28 @@ class BookDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = ['id', 'name', 'testament', 'chapters']
+
+
+class CollectionSerializer(serializers.ModelSerializer):
+    """Serializer for user-curated verse collections."""
+    verse_count = serializers.SerializerMethodField()
+    theme_count = serializers.SerializerMethodField()
+    verses = VerseSerializer(many=True, read_only=True)
+    themes = serializers.StringRelatedField(many=True, read_only=True)
+
+    class Meta:
+        model = Collection
+        fields = ['id', 'name', 'description', 'verses', 'themes', 'verse_count', 'theme_count', 'created_at', 'updated_at']
+
+    def get_verse_count(self, obj):
+        return obj.verses.count()
+
+    def get_theme_count(self, obj):
+        return obj.themes.count()
+
+
+class CollectionWriteSerializer(serializers.ModelSerializer):
+    """Simplified serializer for creating/updating collections."""
+    class Meta:
+        model = Collection
+        fields = ['id', 'name', 'description', 'verses', 'themes', 'created_at', 'updated_at']

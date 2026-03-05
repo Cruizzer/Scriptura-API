@@ -4,13 +4,15 @@ from rest_framework import viewsets, filters
 
 from django_filters import rest_framework as django_filters
 
-from .models import Book, Chapter, Verse
+from .models import Book, Chapter, Verse, Collection
 from .serializers import (
     BookSerializer,
     BookDetailSerializer,
     ChapterListSerializer,
     ChapterSerializer,
-    VerseSerializer
+    VerseSerializer,
+    CollectionSerializer,
+    CollectionWriteSerializer
 )
 from . import repositories
 from analytics.services.text_analytics import TextAnalyticsService
@@ -84,3 +86,24 @@ class VerseViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
     filterset_class = VerseFilter
     search_fields = ['text']
+
+
+class CollectionViewSet(viewsets.ModelViewSet):
+    """
+    Provides full CRUD for user-curated verse collections.
+    
+    Endpoints:
+    - GET /api/collections/ - List all collections
+    - POST /api/collections/ - Create a new collection
+    - GET /api/collections/{id}/ - Get a specific collection
+    - PUT /api/collections/{id}/ - Update a collection
+    - DELETE /api/collections/{id}/ - Delete a collection
+    """
+    queryset = Collection.objects.prefetch_related('verses', 'themes').all()
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'description']
+
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return CollectionWriteSerializer
+        return CollectionSerializer

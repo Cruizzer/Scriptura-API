@@ -66,3 +66,27 @@ class Footnote(models.Model):
     def __str__(self):
         marker = self.marker if self.marker else '*'
         return f"{self.verse} [{marker}]"
+
+
+class Collection(models.Model):
+    """User-curated collection of verses and themes."""
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default='')
+    verses = models.ManyToManyField(
+        Verse,
+        related_name='collections',
+        blank=True
+    )
+    themes = models.ManyToManyField(
+        'themes.Theme',
+        related_name='collections',
+        blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
