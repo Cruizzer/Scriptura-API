@@ -99,10 +99,11 @@ class CollectionSerializer(serializers.ModelSerializer):
     theme_count = serializers.SerializerMethodField()
     verses = VerseSerializer(many=True, read_only=True)
     themes = serializers.StringRelatedField(many=True, read_only=True)
+    user = serializers.IntegerField(source='user_id', read_only=True)
 
     class Meta:
         model = Collection
-        fields = ['id', 'name', 'description', 'verses', 'themes', 'verse_count', 'theme_count', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'verses', 'themes', 'verse_count', 'theme_count', 'user', 'created_at', 'updated_at']
 
     def get_verse_count(self, obj):
         return obj.verses.count()
@@ -119,10 +120,11 @@ class CollectionWriteSerializer(serializers.ModelSerializer):
         required=False
     )
     themes = serializers.SerializerMethodField(read_only=False)
+    user = serializers.IntegerField(source='user_id', read_only=True)
 
     class Meta:
         model = Collection
-        fields = ['id', 'name', 'description', 'verses', 'themes', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'verses', 'themes', 'user', 'created_at', 'updated_at']
 
     def get_themes(self, obj):
         return list(obj.themes.values_list('id', flat=True))

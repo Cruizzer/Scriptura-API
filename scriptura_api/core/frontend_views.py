@@ -44,4 +44,5 @@ def auth_status_view(request):
         "name": request.user.get_full_name() or request.user.get_username() or "",
         "email": request.user.email or "",
         "avatar_url": avatar_url,
+        "id": request.user.id,
     })

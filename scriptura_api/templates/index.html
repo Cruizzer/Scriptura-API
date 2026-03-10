@@ -862,12 +862,12 @@
                     Themes
                 </button>
                 <button 
-                    v-if="authUser.isAuthenticated"
                     @click="currentPage = 'collections'"
                     :class="{ active: currentPage === 'collections' }"
                 >
                     Collections
                 </button>
+
                 <button 
                     @click="openAnalyticsPage"
                     :class="{ active: currentPage === 'analytics' }"
@@ -1209,168 +1209,7 @@
                 </div>
             </div>
 
-            <!-- COLLECTIONS PAGE -->
-            <div v-if="currentPage === 'collections'" class="search-container">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2>My Collections</h2>
-                    <button 
-                        @click="createNewCollectionPrompt"
-                        style="background: #667eea; color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;"
-                    >
-                        + Create Collection
-                    </button>
-                </div>
-                
-                <div v-if="collections.length === 0" style="text-align: center; padding: 40px; color: #9ca3af;">
-                    <p style="margin-bottom: 16px;">You haven't created any collections yet.</p>
-                    <p style="font-size: 13px;">Click "Create Collection" above to start, or go to <strong>Browse</strong> and click "Show Collections" to curate verses.</p>
-                </div>
 
-                <div v-else style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px;">
-                    <div v-for="collection in collections" :key="collection.id" style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
-                            <div>
-                                <h3 style="font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 6px;">
-                                    {{ collection.name }}
-                                </h3>
-                                <p v-if="collection.description" style="color: #6b7280; font-size: 13px;">
-                                    {{ collection.description }}
-                                </p>
-                            </div>
-                            <div style="display: flex; gap: 8px;">
-                                <button 
-                                    @click="editCollection(collection.id)"
-                                    style="background: #dbeafe; color: #1d4ed8; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;"
-                                >
-                                    Edit
-                                </button>
-                                <button 
-                                    @click="deleteCollection(collection.id)"
-                                    style="background: #fee2e2; color: #b91c1c; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;"
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; gap: 16px; margin-bottom: 16px;">
-                            <div>
-                                <div style="font-size: 13px; color: #6b7280;">Verses</div>
-                                <div style="font-size: 20px; font-weight: 700; color: #667eea;">{{ collection.verse_count || 0 }}</div>
-                            </div>
-                            <div>
-                                <div style="font-size: 13px; color: #6b7280;">Themes</div>
-                                <div style="font-size: 20px; font-weight: 700; color: #667eea;">{{ collection.theme_count || 0 }}</div>
-                            </div>
-                        </div>
-
-                        <div v-if="collection.themes && collection.themes.length > 0" style="margin-bottom: 16px;">
-                            <h4 style="font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 8px;">Themes</h4>
-                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                                <span v-for="theme in collection.themes" :key="theme" style="background: #e0e7ff; color: #4f46e5; padding: 4px 9px; border-radius: 6px; font-size: 12px; font-weight: 500;">
-                                    {{ theme }}
-                                </span>
-                            </div>
-                        </div>
-
-                        <button 
-                            @click="viewCollectionVerses(collection.id)"
-                            style="width: 100%; background: #667eea; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
-                            @mouseover="$event.target.style.background = '#5568d3'"
-                            @mouseleave="$event.target.style.background = '#667eea'"
-                        >
-                            View Verses
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Collection Verses Modal -->
-                <div v-if="viewingCollectionId" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
-                    <div style="background: white; border-radius: 12px; padding: 32px; max-width: 700px; max-height: 80vh; overflow-y: auto; width: 90%;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-                            <h3 style="font-size: 20px; font-weight: 700; color: #111827;">
-                                {{ collections.find(c => c.id === viewingCollectionId)?.name || 'Collection' }}
-                            </h3>
-                            <button 
-                                @click="viewingCollectionId = null"
-                                style="background: #f3f4f6; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600;"
-                            >
-                                Close
-                            </button>
-                        </div>
-
-                        <div v-if="viewingCollectionVerses.length === 0" style="text-align: center; color: #9ca3af; padding: 40px 0;">
-                            No verses in this collection.
-                        </div>
-
-                        <div v-else style="display: flex; flex-direction: column; gap: 12px;">
-                            <div 
-                                v-for="verse in viewingCollectionVerses" 
-                                :key="verse.id"
-                                style="background: #f9fafb; border-left: 3px solid #667eea; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: start;"
-                            >
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; color: #111827; margin-bottom: 6px;">
-                                        {{ verse.book_name }} {{ verse.chapter_number }}:{{ verse.number }}
-                                    </div>
-                                    <div style="color: #374151; font-size: 14px; line-height: 1.5;">
-                                        {{ verse.text }}
-                                    </div>
-                                </div>
-                                <button 
-                                    @click="removeVerseFromCollection(viewingCollectionId, verse.id)"
-                                    style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; flex-shrink: 0; font-size: 16px; margin-left: 8px; opacity: 0.7; transition: opacity 0.2s;"
-                                    @mouseover="$event.target.style.opacity = '1'"
-                                    @mouseleave="$event.target.style.opacity = '0.7'"
-                                    title="Remove from collection"
-                                >
-                                    🗑️
-                                </button>
-                            </div>
-                        </div>
-
-                        <div v-if="viewingCollectionVerses.length > 0" style="margin-top: 32px; padding-top: 24px; border-top: 2px solid #e5e7eb;">
-                            <h4 style="font-size: 16px; font-weight: 700; color: #111827; margin-bottom: 12px;">Recommended Verses</h4>
-                            <p style="font-size: 13px; color: #6b7280; margin-bottom: 16px;">Based on thematic similarity to verses in this collection:</p>
-                            
-                            <div v-if="collectionRecommendationsLoading" style="text-align: center; color: #9ca3af; padding: 20px;">
-                                Loading recommendations...
-                            </div>
-                            <div v-else-if="collectionRecommendations.length === 0" style="text-align: center; color: #9ca3af; padding: 20px;">
-                                No recommendations found.
-                            </div>
-                            <div v-else style="display: flex; flex-direction: column; gap: 12px;">
-                                <div 
-                                    v-for="rec in collectionRecommendations" 
-                                    :key="rec.id"
-                                    style="background: #fffbeb; border-left: 3px solid #f59e0b; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: start;"
-                                >
-                                    <div style="flex: 1;">
-                                        <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">
-                                            {{ rec.reference }}
-                                            <span style="font-size: 12px; color: #6b7280; font-weight: 500;">
-                                                ({{ (rec.aggregated_similarity * 20).toFixed(0) }}%)
-                                            </span>
-                                        </div>
-                                        <div style="color: #374151; font-size: 14px; line-height: 1.5;">
-                                            {{ rec.text }}
-                                        </div>
-                                    </div>
-                                    <button 
-                                        @click="addVerseToCollection(viewingCollectionId, rec.id)"
-                                        style="background: #10b981; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; flex-shrink: 0; margin-left: 8px; font-size: 16px; transition: background 0.2s;"
-                                        @mouseover="$event.target.style.background = '#059669'"
-                                        @mouseleave="$event.target.style.background = '#10b981'"
-                                        title="Add to collection"
-                                    >
-                                        +
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- ANALYTICS PAGE -->
             <div v-if="currentPage === 'analytics'">
@@ -1463,6 +1302,194 @@
                         </div>
                         <div id="similarity-network" style="width: 100%; height: 720px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fafafa; position: relative; overflow: hidden;">
                             <svg id="graph-svg" width="100%" height="100%" style="width: 100%; height: 100%;"></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLLECTIONS PAGE -->
+            <div v-if="currentPage === 'collections'">
+                <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                        <h2 style="margin: 0;">Collections</h2>
+                        <button 
+                            v-if="authUser.isAuthenticated"
+                            @click="promptCreateCollection()"
+                            style="background: #667eea; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;"
+                        >
+                            + New Collection
+                        </button>
+                    </div>
+
+                    <!-- Tabs -->
+                    <div style="display: flex; gap: 16px; margin-bottom: 24px; border-bottom: 2px solid #e5e7eb;">
+                        <button 
+                            @click="collectionsTab = 'public'"
+                            :style="{ 
+                                borderBottom: collectionsTab === 'public' ? '3px solid #667eea' : 'none',
+                                color: collectionsTab === 'public' ? '#667eea' : '#6b7280',
+                                background: 'none',
+                                border: 'none',
+                                padding: '12px 0',
+                                cursor: 'pointer',
+                                fontWeight: collectionsTab === 'public' ? '700' : '500',
+                                fontSize: '15px'
+                            }"
+                        >
+                            Public Collections
+                        </button>
+                        <button 
+                            v-if="authUser.isAuthenticated"
+                            @click="collectionsTab = 'private'"
+                            :style="{ 
+                                borderBottom: collectionsTab === 'private' ? '3px solid #667eea' : 'none',
+                                color: collectionsTab === 'private' ? '#667eea' : '#6b7280',
+                                background: 'none',
+                                border: 'none',
+                                padding: '12px 0',
+                                cursor: 'pointer',
+                                fontWeight: collectionsTab === 'private' ? '700' : '500',
+                                fontSize: '15px'
+                            }"
+                        >
+                            Private Collections
+                        </button>
+                    </div>
+
+                    <!-- Public Collections -->
+                    <div v-if="collectionsTab === 'public'">
+                        <div v-if="publicCollections.length === 0" style="text-align: center; color: #9ca3af; padding: 40px;">
+                            No public collections yet.
+                        </div>
+                        <div v-else style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+                            <div 
+                                v-for="coll in publicCollections" 
+                                :key="coll.id"
+                                style="background: #f9fafb; border: 1px solid #e5e7eb; padding: 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                @mouseover="$event.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'"
+                                @mouseleave="$event.currentTarget.style.boxShadow = 'none'"
+                                @click="viewCollectionVerses(coll.id)"
+                            >
+                                <h3 style="font-size: 16px; font-weight: 700; color: #111827; margin: 0 0 8px 0;">{{ coll.name }}</h3>
+                                <p style="font-size: 13px; color: #6b7280; margin: 0 0 12px 0; line-height: 1.4;">{{ coll.description || 'No description' }}</p>
+                                <div style="font-size: 12px; color: #9ca3af;">{{ coll.verses ? coll.verses.length : 0 }} verse{{ coll.verses && coll.verses.length !== 1 ? 's' : '' }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Private Collections -->
+                    <div v-if="collectionsTab === 'private' && authUser.isAuthenticated">
+                        <div v-if="privateCollections.length === 0" style="text-align: center; color: #9ca3af; padding: 40px;">
+                            No private collections yet. Create one to get started!
+                        </div>
+                        <div v-else style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+                            <div 
+                                v-for="coll in privateCollections" 
+                                :key="coll.id"
+                                style="background: #f0f9ff; border: 1px solid #bfdbfe; padding: 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; position: relative;"
+                                @mouseover="$event.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.2)'"
+                                @mouseleave="$event.currentTarget.style.boxShadow = 'none'"
+                                @click="viewCollectionVerses(coll.id)"
+                            >
+                                <div style="position: absolute; top: 12px; right: 12px;">
+                                    <button 
+                                        @click.stop="deleteCollection(coll.id)"
+                                        style="background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                                <h3 style="font-size: 16px; font-weight: 700; color: #1e40af; margin: 0 0 8px 0;">{{ coll.name }}</h3>
+                                <p style="font-size: 13px; color: #1e3a8a; margin: 0 0 12px 0; line-height: 1.4;">{{ coll.description || 'No description' }}</p>
+                                <div style="font-size: 12px; color: #1e40af; font-weight: 600;">{{ coll.verses ? coll.verses.length : 0 }} verse{{ coll.verses && coll.verses.length !== 1 ? 's' : '' }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Collection Detail Modal -->
+            <div v-if="viewingCollectionId" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+                <div style="background: white; border-radius: 12px; padding: 32px; max-width: 700px; max-height: 80vh; overflow-y: auto; width: 90%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                        <h3 style="font-size: 20px; font-weight: 700; color: #111827;">
+                            {{ allCollections.find(c => c.id === viewingCollectionId)?.name || 'Collection' }}
+                        </h3>
+                        <button 
+                            @click="viewingCollectionId = null"
+                            style="background: #f3f4f6; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600;"
+                        >
+                            Close
+                        </button>
+                    </div>
+
+                    <div v-if="viewingCollectionVerses.length === 0" style="text-align: center; color: #9ca3af; padding: 40px 0;">
+                        No verses in this collection.
+                    </div>
+
+                    <div v-else style="display: flex; flex-direction: column; gap: 12px;">
+                        <div 
+                            v-for="verse in viewingCollectionVerses" 
+                            :key="verse.id"
+                            style="background: #f9fafb; border-left: 3px solid #667eea; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: start;"
+                        >
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: #111827; margin-bottom: 6px;">
+                                    {{ verse.book_name }} {{ verse.chapter_number }}:{{ verse.number }}
+                                </div>
+                                <div style="color: #374151; font-size: 14px; line-height: 1.5;">
+                                    {{ verse.text }}
+                                </div>
+                            </div>
+                            <button 
+                                @click="removeVerseFromCollection(viewingCollectionId, verse.id)"
+                                style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; flex-shrink: 0; font-size: 16px; margin-left: 8px; opacity: 0.7; transition: opacity 0.2s;"
+                                @mouseover="$event.target.style.opacity = '1'"
+                                @mouseleave="$event.target.style.opacity = '0.7'"
+                                title="Remove from collection"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-if="viewingCollectionVerses.length > 0" style="margin-top: 32px; padding-top: 24px; border-top: 2px solid #e5e7eb;">
+                        <h4 style="font-size: 16px; font-weight: 700; color: #111827; margin-bottom: 12px;">Recommended Verses</h4>
+                        <p style="font-size: 13px; color: #6b7280; margin-bottom: 16px;">Based on thematic similarity to verses in this collection:</p>
+                        
+                        <div v-if="collectionRecommendationsLoading" style="text-align: center; color: #9ca3af; padding: 20px;">
+                            Loading recommendations...
+                        </div>
+                        <div v-else-if="collectionRecommendations.length === 0" style="text-align: center; color: #9ca3af; padding: 20px;">
+                            No recommendations found.
+                        </div>
+                        <div v-else style="display: flex; flex-direction: column; gap: 12px;">
+                            <div 
+                                v-for="rec in collectionRecommendations" 
+                                :key="rec.id"
+                                style="background: #fffbeb; border-left: 3px solid #f59e0b; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: start;"
+                            >
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">
+                                        {{ rec.reference }}
+                                        <span style="font-size: 12px; color: #6b7280; font-weight: 500;">
+                                            ({{ (rec.aggregated_similarity * 100).toFixed(0) }}%)
+                                        </span>
+                                    </div>
+                                    <div style="color: #374151; font-size: 14px; line-height: 1.5;">
+                                        {{ rec.text }}
+                                    </div>
+                                </div>
+                                <button 
+                                    @click="addVerseToCollection(viewingCollectionId, rec.id)"
+                                    style="background: #10b981; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; flex-shrink: 0; margin-left: 8px; font-size: 16px; transition: background 0.2s;"
+                                    @mouseover="$event.target.style.background = '#059669'"
+                                    @mouseleave="$event.target.style.background = '#10b981'"
+                                    title="Add to collection"
+                                >
+                                    +
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1686,12 +1713,13 @@
                     bookSummaries: [],
                     newTheme: { name: '', keywords: '' },
                     themeMessage: null,
-                    apiBase: 'http://127.0.0.1:8000/api',
+                    apiBase: '/api',
                     searchDebounceTimer: null,
                     selectedThemeForCoverage: null,
                     loadingThemeCoverageId: null,
                     themeCoverageByThemeId: {},
                     collections: [],
+                    collectionsTab: 'public',
                     newCollection: {
                         name: '',
                         description: '',
@@ -1713,12 +1741,23 @@
                     authUser: {
                         isAuthenticated: false,
                         avatarUrl: '',
+                        id: null,
                     }
                 };
             },
             computed: {
                 otBooks() { return BIBLE_BOOKS.filter(b => OT_SET.has(b)); },
                 ntBooks() { return BIBLE_BOOKS.filter(b => !OT_SET.has(b)); },
+                allCollections() {
+                    return this.collections;
+                },
+                publicCollections() {
+                    return this.collections.filter(c => !c.user);
+                },
+                privateCollections() {
+                    const currentUserId = Number(this.authUser.id);
+                    return this.collections.filter(c => c.user && Number(c.user) === currentUserId);
+                },
                 activeThemeCoverage() {
                     if (!this.selectedThemeForCoverage) return null;
                     return this.themeCoverageByThemeId[this.selectedThemeForCoverage] || null;
@@ -1922,6 +1961,7 @@
                         this.authUser = {
                             isAuthenticated: !!data.is_authenticated,
                             avatarUrl: data.avatar_url || '',
+                            id: data.id || null,
                         };
                     } catch (e) {
                         console.error('Error loading auth status:', e);
@@ -2315,6 +2355,39 @@
                         this.collectionRecommendations = [];
                     } finally {
                         this.collectionRecommendationsLoading = false;
+                    }
+                },
+                promptCreateCollection() {
+                    const name = prompt('Enter collection name:');
+                    if (!name) return;
+                    const description = prompt('Enter description (optional):') || '';
+                    
+                    this.createNewCollection(name, description);
+                },
+                async createNewCollection(name, description = '') {
+                    try {
+                        const response = await fetch(`${this.apiBase}/collections/`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({
+                                name: name,
+                                description: description,
+                                verses: [],
+                                themes: []
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            alert(`Collection "${name}" created!`);
+                            this.clearSelectedVerses();
+                            await this.loadCollections();
+                        } else {
+                            alert('Error creating collection');
+                        }
+                    } catch (e) {
+                        console.error('Error creating collection:', e);
+                        alert('Error creating collection');
                     }
                 },
                 async addVerseToCollection(collectionId, verseId) {
