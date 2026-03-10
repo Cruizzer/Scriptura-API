@@ -9,7 +9,6 @@ from analytics.services.text_analytics import TextAnalyticsService
 from core.models import Book, Chapter, Verse, Section, Footnote
 
 
-MARKER_PATTERN = re.compile(r'^\\([a-z0-9]+)\b\s*(.*)$')
 VERSE_PATTERN = re.compile(r'^\\v\s+(\d+[a-z]?)\s*(.*)$')
 CHAPTER_PATTERN = re.compile(r'^\\c\s+(\d+)')
 SECTION_PATTERN = re.compile(r'^\\s\d*\s+(.*)$')

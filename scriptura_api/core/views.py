@@ -1,10 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, permissions
 
 from django_filters import rest_framework as django_filters
 
-from .models import Book, Chapter, Verse, Collection
+from .models import Verse, Collection
 from .serializers import (
     BookSerializer,
     BookDetailSerializer,
@@ -93,15 +93,25 @@ class CollectionViewSet(viewsets.ModelViewSet):
     Provides full CRUD for user-curated verse collections.
     
     Endpoints:
-    - GET /api/collections/ - List all collections
-    - POST /api/collections/ - Create a new collection
+    - GET /api/collections/ - List all collections for authenticated user
+    - POST /api/collections/ - Create a new collection (requires authentication)
     - GET /api/collections/{id}/ - Get a specific collection
-    - PUT /api/collections/{id}/ - Update a collection
-    - DELETE /api/collections/{id}/ - Delete a collection
+    - PUT /api/collections/{id}/ - Update a collection (requires authentication)
+    - DELETE /api/collections/{id}/ - Delete a collection (requires authentication)
     """
-    queryset = Collection.objects.prefetch_related('verses', 'themes').all()
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'description']
+
+    def get_queryset(self):
+        """Filter collections by authenticated user"""
+        if self.request.user.is_authenticated:
+            return Collection.objects.filter(user=self.request.user).prefetch_related('verses', 'themes')
+        return Collection.objects.none()
+
+    def perform_create(self, serializer):
+        """Automatically set the user to the current authenticated user"""
+        serializer.save(user=self.request.user)
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:

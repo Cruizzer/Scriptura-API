@@ -70,6 +70,13 @@ class Footnote(models.Model):
 
 class Collection(models.Model):
     """User-curated collection of verses and themes."""
+    user = models.ForeignKey(
+        'auth.User',
+        related_name='collections',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True, default='')
     verses = models.ManyToManyField(

@@ -30,7 +30,8 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py loaddata path/to/drc.json  # or use custom management command
+python manage.py load_usfm ../engDRA_usfm --reset
+python manage.py load_pericopes ../engDRA_usfm/PericopeGroupedKJVVerses.json
 ``` 
 
 

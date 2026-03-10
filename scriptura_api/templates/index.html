@@ -32,8 +32,8 @@
             backdrop-filter: blur(6px);
             padding: 16px 28px;
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
             margin-bottom: 26px;
             border-radius: 14px;
@@ -54,6 +54,7 @@
         .nav-links {
             display: flex;
             gap: 20px;
+            justify-self: center;
         }
 
         .nav-links button {
@@ -73,6 +74,72 @@
             background: #111827;
             color: #f9fafb;
             border-color: #111827;
+        }
+
+        .auth-links {
+            justify-self: end;
+            position: relative;
+            z-index: 30;
+            pointer-events: auto;
+        }
+
+        .google-signin-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #667eea;
+            color: #fff;
+            text-decoration: none;
+            border: 1px solid #667eea;
+            padding: 9px 14px;
+            border-radius: 9px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .google-signin-btn:hover {
+            background: #5568d3;
+            border-color: #5568d3;
+        }
+
+        .google-signin-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .auth-user {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .auth-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #e5e7eb;
+            background: #f3f4f6;
+        }
+
+        .signout-btn {
+            display: inline-flex;
+            align-items: center;
+            background: #111827;
+            color: #fff;
+            text-decoration: none;
+            border: 1px solid #111827;
+            padding: 9px 14px;
+            border-radius: 9px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .signout-btn:hover {
+            background: #000;
+            border-color: #000;
         }
 
         .container {
@@ -756,6 +823,12 @@
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 12px;
+                display: flex;
+            }
+
+            .nav-links,
+            .auth-links {
+                justify-self: auto;
             }
 
             .collection-grid {
@@ -789,6 +862,7 @@
                     Themes
                 </button>
                 <button 
+                    v-if="authUser.isAuthenticated"
                     @click="currentPage = 'collections'"
                     :class="{ active: currentPage === 'collections' }"
                 >
@@ -800,6 +874,21 @@
                 >
                     Analytics
                 </button>
+            </div>
+            <div class="auth-links">
+                <a v-if="!authUser.isAuthenticated" href="/auth/google/" class="google-signin-btn">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="currentColor"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="currentColor"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="currentColor"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="currentColor"/>
+                    </svg>
+                    Sign in with Google
+                </a>
+                <div v-else class="auth-user">
+                    <img v-if="authUser.avatarUrl" :src="authUser.avatarUrl" alt="Profile" class="auth-avatar">
+                    <a href="/accounts/logout/" class="signout-btn">Sign out</a>
+                </div>
             </div>
         </div>
 
@@ -902,6 +991,7 @@
                             Clear Highlight
                         </button>
                         <button 
+                            v-if="authUser.isAuthenticated"
                             @click="showCollectionsPanel = !showCollectionsPanel"
                             style="background: #667eea; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; margin-left: auto;"
                         >
@@ -1337,6 +1427,41 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ANALYTICS BOOK SUMMARIES PAGE -->
+            <div v-if="currentPage === 'analytics'">
+                <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1);">
+                    <h2>Book Analytics</h2>
+                    <div style="margin-top: 20px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f8f9fa; border-bottom: 2px solid #667eea;">
+                                    <th style="padding: 12px; text-align: left;">Book</th>
+                                    <th style="padding: 12px; text-align: right;">Words</th>
+                                    <th style="padding: 12px; text-align: right;">Entropy</th>
+                                    <th style="padding: 12px; text-align: right;">Vocabulary Richness (TTR)</th>
+                                    <th style="padding: 12px; text-align: right;">Hapax Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr 
+                                    v-for="summary in bookSummaries" 
+                                    :key="summary.id"
+                                    style="border-bottom: 1px solid #ddd; transition: background 0.3s;"
+                                    @mouseover="$event.target.parentElement.style.background = '#f8f9fa'"
+                                    @mouseout="$event.target.parentElement.style.background = 'white'"
+                                >
+                                    <td style="padding: 12px;">{{ summary.book }}</td>
+                                    <td style="padding: 12px; text-align: right;">{{ summary.word_count.toLocaleString() }}</td>
+                                    <td style="padding: 12px; text-align: right;">{{ summary.entropy ? summary.entropy.toFixed(2) : 'N/A' }}</td>
+                                    <td style="padding: 12px; text-align: right;">{{ summary.ttr ? summary.ttr.toFixed(3) : 'N/A' }}</td>
+                                    <td style="padding: 12px; text-align: right;">{{ summary.hapax_count || 'N/A' }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1542,7 +1667,11 @@
                     simShowCross: true,
                     simShowSame: true,
                     simResults: [],
-                    sharedKeywords: []
+                    sharedKeywords: [],
+                    authUser: {
+                        isAuthenticated: false,
+                        avatarUrl: '',
+                    }
                 };
             },
             computed: {
@@ -1578,6 +1707,10 @@
                 }
             },
             methods: {
+                getCsrfToken() {
+                    const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
+                    return match ? decodeURIComponent(match[1]) : '';
+                },
                 getTestament(book) { return OT_SET.has(book) ? 'Old Testament' : 'New Testament'; },
                 computeBookSimilarity() {
                     if (!this.simSelectedBook) { this.simResults = []; this.sharedKeywords = []; return; }
@@ -1743,6 +1876,20 @@
                         console.error('Error loading books:', e);
                     }
                 },
+                async loadAuthStatus() {
+                    try {
+                        const res = await fetch('/auth/status/', {
+                            credentials: 'same-origin'
+                        });
+                        const data = await res.json();
+                        this.authUser = {
+                            isAuthenticated: !!data.is_authenticated,
+                            avatarUrl: data.avatar_url || '',
+                        };
+                    } catch (e) {
+                        console.error('Error loading auth status:', e);
+                    }
+                },
                 highlightText(text, query) {
                     const safeText = String(text)
                         .replace(/&/g, '&amp;')
@@ -1903,7 +2050,8 @@
                     try {
                         const res = await fetch(`${this.apiBase}/themes/`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
+                            credentials: 'same-origin',
                             body: JSON.stringify({ name: this.newTheme.name, keywords: [] })
                         });
 
@@ -1922,7 +2070,8 @@
                             for (const word of keywords) {
                                 const keywordRes = await fetch(`${this.apiBase}/theme-keywords/`, {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
+                                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
+                                    credentials: 'same-origin',
                                     body: JSON.stringify({ theme: theme.id, word })
                                 });
                                 
@@ -1943,7 +2092,7 @@
                 async deleteTheme(id) {
                     if (!confirm('Delete this theme?')) return;
                     try {
-                        await fetch(`${this.apiBase}/themes/${id}/`, { method: 'DELETE' });
+                        await fetch(`${this.apiBase}/themes/${id}/`, { method: 'DELETE', headers: { 'X-CSRFToken': this.getCsrfToken() }, credentials: 'same-origin' });
                         const updatedCoverage = { ...this.themeCoverageByThemeId };
                         delete updatedCoverage[id];
                         this.themeCoverageByThemeId = updatedCoverage;
@@ -2018,17 +2167,28 @@
                     }
                     
                     try {
-                        const verseIdArray = Array.from(this.selectedVerses);
+                        // Fetch the current collection to get existing verses
+                        const getResponse = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
+                            credentials: 'same-origin'
+                        });
+                        const collection = await getResponse.json();
+                        
+                        // Combine existing verses with new selected verses
+                        const existingVerseIds = (collection.verses || []).map(v => v.id || v);
+                        const newVerseIds = Array.from(this.selectedVerses);
+                        const allVerseIds = [...new Set([...existingVerseIds, ...newVerseIds])]; // Remove duplicates
+                        
                         const response = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
                             method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
+                            credentials: 'same-origin',
                             body: JSON.stringify({
-                                verses: verseIdArray
+                                verses: allVerseIds
                             })
                         });
                         
                         if (response.ok) {
-                            alert(`Added ${verseIdArray.length} verse(s) to collection!`);
+                            alert(`Added ${newVerseIds.length} verse(s) to collection!`);
                             this.clearSelectedVerses();
                             await this.loadCollections();
                         } else {
@@ -2052,7 +2212,8 @@
                         const verseIdArray = Array.from(this.selectedVerses);
                         const response = await fetch(`${this.apiBase}/collections/`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
+                            credentials: 'same-origin',
                             body: JSON.stringify({
                                 name: collectionName,
                                 description: '',
@@ -2075,7 +2236,9 @@
                 },
                 async loadCollections() {
                     try {
-                        const res = await fetch(`${this.apiBase}/collections/`);
+                        const res = await fetch(`${this.apiBase}/collections/`, {
+                            credentials: 'same-origin'
+                        });
                         const data = await res.json();
                         this.collections = data.results || data || [];
                     } catch (e) {
@@ -2085,7 +2248,9 @@
                 async viewCollectionVerses(collectionId) {
                     this.viewingCollectionId = collectionId;
                     try {
-                        const res = await fetch(`${this.apiBase}/collections/${collectionId}/`);
+                        const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
+                            credentials: 'same-origin'
+                        });
                         const data = await res.json();
                         this.viewingCollectionVerses = data.verses || [];
                     } catch (e) {
@@ -2097,7 +2262,9 @@
                     if (!confirm('Delete this collection?')) return;
                     try {
                         const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
-                            method: 'DELETE'
+                            method: 'DELETE',
+                            headers: { 'X-CSRFToken': this.getCsrfToken() },
+                            credentials: 'same-origin'
                         });
                         if (res.ok) {
                             await this.loadCollections();
@@ -2124,13 +2291,14 @@
                     try {
                         const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
                             body: JSON.stringify({
                                 name: name,
                                 description: description,
                                 verses: (collection.verses || []).map(v => v.id || v),
                                 themes: (collection.themes || [])
-                            })
+                            }),
+                            credentials: 'same-origin'
                         });
                         if (res.ok) {
                             alert('Collection updated!');
@@ -2154,13 +2322,14 @@
                     try {
                         const res = await fetch(`${this.apiBase}/collections/`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
                             body: JSON.stringify({
                                 name: name,
                                 description: description,
                                 verses: [],
                                 themes: []
-                            })
+                            }),
+                            credentials: 'same-origin'
                         });
                         if (res.ok) {
                             alert(`Created collection "${name}"!`);
@@ -2186,13 +2355,14 @@
                     try {
                         const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
                             body: JSON.stringify({
                                 name: collection.name,
                                 description: collection.description,
                                 verses: remainingVerses,
                                 themes: (collection.themes || [])
-                            })
+                            }),
+                            credentials: 'same-origin'
                         });
                         if (res.ok) {
                             await this.viewCollectionVerses(collectionId);
@@ -2207,10 +2377,16 @@
                 },
             },
             async mounted() {
-                await this.loadBooks();
+                // Load auth status in background (doesn't block other content)
+                this.loadAuthStatus();
+                
+                // Load page content in parallel
+                await Promise.all([
+                    this.loadBooks(),
+                    this.loadCollections()
+                ]);
                 this.loadThemes();
                 this.loadBookSummaries();
-                this.loadCollections();
                 
                 // Load Genesis 1 by default for browse page
                 const genesis = this.books.find(b => b.name.toLowerCase() === 'genesis');
