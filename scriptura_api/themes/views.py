@@ -31,13 +31,13 @@ class ThemeKeywordViewSet(viewsets.ModelViewSet):
 
 @extend_schema_view(
     list=extend_schema(
-        description="List all user-defined themes for organizing biblical concepts"
+        description="List all user-defined themes for organizing biblical concepts. Each item includes `occurrences_endpoint` to query analytics occurrences for that theme."
     ),
     create=extend_schema(
-        description="Create a new custom theme with keywords"
+        description="Create a new custom theme with keywords. Response includes `occurrences_endpoint` for analytics occurrences by theme ID."
     ),
     retrieve=extend_schema(
-        description="Get a specific theme with all its keywords"
+        description="Get a specific theme with all its keywords and `occurrences_endpoint` for analytics lookup."
     ),
     update=extend_schema(
         description="Update a theme and its keywords"

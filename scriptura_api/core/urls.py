@@ -23,7 +23,7 @@ urlpatterns = router.urls
 
 # extra custom analytics endpoints
 urlpatterns += [
-    path('themes/<int:pk>/coverage/', ThemeAnalyticsView.as_view(), name='theme-coverage'),
+    path('analytics/themes/<int:pk>/', ThemeAnalyticsView.as_view(), name='theme-analytics'),
     path('analytics/similarity-graph/', LexicalSimilarityGraphView.as_view(), name='similarity-graph'),
     path('analytics/verse-recommendations/', VerseRecommendationView.as_view(), name='verse-recommendations'),
     path('analytics/collection-recommendations/', CollectionRecommendationsView.as_view(), name='collection-recommendations'),

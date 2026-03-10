@@ -60,8 +60,9 @@ class ThemeAnalyticsView(APIView):
         return coverage
 
     @extend_schema(
-        description="Get theme coverage showing keyword frequency across all books",
-        parameters=[]
+        description="Get theme keyword occurrences across all books using a theme ID",
+        parameters=[],
+        responses={200: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT}
     )
     def get(self, request, pk):
         theme = get_object_or_404(Theme.objects.prefetch_related('keywords'), pk=pk)
@@ -79,7 +80,12 @@ class ThemeAnalyticsView(APIView):
                 defaults={'keyword_signature': signature, 'coverage': coverage},
             )
 
-        return Response({"theme": theme.name, "coverage": coverage})
+        return Response({
+            "theme_id": theme.id,
+            "theme": theme.name,
+            "keywords": keyword_words,
+            "occurrences": coverage,
+        })
 
 
 class LexicalSimilarityGraphView(APIView):
@@ -90,7 +96,7 @@ class LexicalSimilarityGraphView(APIView):
     
     Query parameters:
     - metric: "tfidf_cosine" (default) | "cosine" | "jaccard"
-    - threshold: float 0–1, default 0.3 (minimum similarity to include edge)
+    - threshold: float 0-1, default 0.3 (minimum similarity to include edge)
     
     Returns nodes (books) and edges (similarities) forming a network graph, along with
     summary statistics (density, average weight, most-connected books).

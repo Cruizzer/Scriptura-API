@@ -83,25 +83,25 @@ Access the interactive API documentation at:
 ### Core Endpoints
 
 #### Biblical Text Access
-- `GET /api/books/` – List books (filter by testament, search by name)
-- `GET /api/chapters/` – List chapters (filter by book, number)
-- `GET /api/verses/` – List verses (filter by book/chapter/keywords; full-text search)
+- `GET /api/books/` - List books (filter by testament, search by name)
+- `GET /api/chapters/` - List chapters (filter by book, number)
+- `GET /api/verses/` - List verses (filter by book/chapter/keywords; full-text search)
 
 #### Themes
-- `GET /api/themes/` – List themes
-- `POST /api/themes/` – Create theme with keywords
-- `GET /api/themes/{id}/coverage/` – Analytics for theme across books
+- `GET /api/themes/` - List themes
+- `POST /api/themes/` - Create theme with keywords
+- `GET /api/themes/{id}/coverage/` - Analytics for theme across books
 
 #### Collections
-- `GET /api/collections/` – List verse collections
-- `POST /api/collections/` – Create collection (many-to-many verses and themes)
-- `PUT /api/collections/{id}/` – Update collection
-- `DELETE /api/collections/{id}/` – Delete collection
+- `GET /api/collections/` - List verse collections
+- `POST /api/collections/` - Create collection (many-to-many verses and themes)
+- `PUT /api/collections/{id}/` - Update collection
+- `DELETE /api/collections/{id}/` - Delete collection
 
 #### Analytics
-- `GET /api/book-summaries/` – Precomputed metrics per book
-- `GET /api/analytics/similarity-graph/` – Book similarity network (configurable metric and threshold)
-- `GET /api/analytics/verse-recommendations/` – Find similar verses to a reference verse
+- `GET /api/book-summaries/` - Precomputed metrics per book
+- `GET /api/analytics/similarity-graph/` - Book similarity network (configurable metric and threshold)
+- `GET /api/analytics/verse-recommendations/` - Find similar verses to a reference verse
 
 ## Key Features
 

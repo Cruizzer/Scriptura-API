@@ -1764,7 +1764,7 @@
                 },
                 themeCoverageSorted() {
                     if (!this.activeThemeCoverage) return [];
-                    return [...this.activeThemeCoverage.coverage].sort((a, b) => b.keyword_count - a.keyword_count);
+                    return [...(this.activeThemeCoverage.occurrences || [])].sort((a, b) => b.keyword_count - a.keyword_count);
                 },
                 canGoPrevious() {
                     if (!this.currentBook.id || !this.bookChapters.length) return false;
@@ -2198,7 +2198,7 @@
                 async loadThemeCoverage(themeId) {
                     this.loadingThemeCoverageId = themeId;
                     try {
-                        const response = await fetch(`${this.apiBase}/themes/${themeId}/coverage/`);
+                        const response = await fetch(`${this.apiBase}/analytics/themes/${themeId}/`);
                         const data = await response.json();
                         this.themeCoverageByThemeId = {
                             ...this.themeCoverageByThemeId,

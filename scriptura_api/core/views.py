@@ -5,6 +5,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from drf_spectacular.types import OpenApiTypes
 
 from django_filters import rest_framework as django_filters
+from django.db.models import Q
 
 from .models import Verse, Collection
 from .serializers import (
@@ -135,22 +136,22 @@ class VerseViewSet(viewsets.ReadOnlyModelViewSet):
 
 @extend_schema_view(
     list=extend_schema(
-        description="List all collections. Authenticated users see their own private collections; anonymous users see shared collections."
+        description="List collections visible to the current user. Anonymous users see public collections only. Authenticated users see public collections plus their own private collections."
     ),
     create=extend_schema(
-        description="Create a new collection. Authenticated users create private collections; anonymous users create shared collections."
+        description="Create a new collection. Anonymous requests create public collections (`user=null`). Authenticated requests create private collections owned by the current user."
     ),
     retrieve=extend_schema(
-        description="Get a specific collection with all verses"
+        description="Retrieve a collection with all verses. Public collections are readable by anyone. Private collections are readable only by their owner."
     ),
     update=extend_schema(
-        description="Update a collection (replace all verses and themes)"
+        description="Replace a collection. Public collections can be updated by anyone. Private collections can be updated only by their owner."
     ),
     partial_update=extend_schema(
-        description="Partially update a collection (update specific fields)"
+        description="Partially update a collection. Public collections can be updated by anyone. Private collections can be updated only by their owner."
     ),
     destroy=extend_schema(
-        description="Delete a collection"
+        description="Delete a collection. Public collections can be deleted by anyone. Private collections can be deleted only by their owner."
     )
 )
 class CollectionViewSet(viewsets.ModelViewSet):
@@ -164,8 +165,12 @@ class CollectionViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'description']
 
     def get_queryset(self):
-        """Return all collections. Frontend will filter by user for display."""
-        return Collection.objects.all().prefetch_related('verses', 'themes')
+        """Return only collections visible to the current user."""
+        if self.request.user.is_authenticated:
+            return Collection.objects.filter(
+                Q(user__isnull=True) | Q(user=self.request.user)
+            ).prefetch_related('verses', 'themes')
+        return Collection.objects.filter(user__isnull=True).prefetch_related('verses', 'themes')
 
     def perform_create(self, serializer):
         """Automatically set the user to the current authenticated user if available"""

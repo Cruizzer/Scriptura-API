@@ -8,10 +8,14 @@ class ThemeKeywordSerializer(serializers.ModelSerializer):
 
 class ThemeSerializer(serializers.ModelSerializer):
     keywords = ThemeKeywordSerializer(many=True, read_only=True)
+    occurrences_endpoint = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Theme
-        fields = ['id', 'name', 'keywords']
+        fields = ['id', 'name', 'keywords', 'occurrences_endpoint']
+
+    def get_occurrences_endpoint(self, obj):
+        return f"/api/analytics/themes/{obj.id}/"
     
     def create(self, validated_data):
         keywords_data = self.initial_data.get('keywords', [])

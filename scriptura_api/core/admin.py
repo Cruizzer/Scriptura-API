@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Book, Chapter, Verse, Section, Footnote
+from .models import Book, Chapter, Verse, Section, Footnote, Collection
 
 
 class ChapterInline(admin.TabularInline):
@@ -71,3 +71,25 @@ class FootnoteAdmin(admin.ModelAdmin):
     def text_preview(self, obj):
         return obj.text[:100] + '...' if len(obj.text) > 100 else obj.text
     text_preview.short_description = 'Footnote'
+
+
+@admin.register(Collection)
+class CollectionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'name', 'user', 'is_public', 'verse_count', 'theme_count', 'created_at', 'updated_at']
+    list_filter = ['user', 'created_at', 'updated_at']
+    search_fields = ['name', 'description', 'user__username', 'user__email']
+    filter_horizontal = ['verses', 'themes']
+    readonly_fields = ['created_at', 'updated_at']
+
+    def is_public(self, obj):
+        return obj.user is None
+    is_public.boolean = True
+    is_public.short_description = 'Public'
+
+    def verse_count(self, obj):
+        return obj.verses.count()
+    verse_count.short_description = 'Verses'
+
+    def theme_count(self, obj):
+        return obj.themes.count()
+    theme_count.short_description = 'Themes'

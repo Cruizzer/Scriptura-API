@@ -41,29 +41,29 @@ class ThemeCoverageCacheTests(TestCase):
         self.theme.keywords.create(word="hope")
 
     def test_coverage_is_cached_in_db(self):
-        url = reverse('theme-coverage', args=[self.theme.pk])
+        url = reverse('theme-analytics', args=[self.theme.pk])
 
         first = self.client.get(url)
         self.assertEqual(first.status_code, 200)
         self.assertEqual(ThemeCoverageCache.objects.count(), 1)
 
         cache = ThemeCoverageCache.objects.get(theme=self.theme)
-        self.assertEqual(cache.coverage, first.json()['coverage'])
+        self.assertEqual(cache.coverage, first.json()['occurrences'])
 
         second = self.client.get(url)
         self.assertEqual(second.status_code, 200)
         self.assertEqual(ThemeCoverageCache.objects.count(), 1)
-        self.assertEqual(second.json()['coverage'], first.json()['coverage'])
+        self.assertEqual(second.json()['occurrences'], first.json()['occurrences'])
 
     def test_cache_refreshes_when_keywords_change(self):
-        url = reverse('theme-coverage', args=[self.theme.pk])
+        url = reverse('theme-analytics', args=[self.theme.pk])
 
         first = self.client.get(url)
-        first_coverage = first.json()['coverage']
+        first_coverage = first.json()['occurrences']
 
         self.theme.keywords.create(word='light')
 
         second = self.client.get(url)
-        second_coverage = second.json()['coverage']
+        second_coverage = second.json()['occurrences']
 
         self.assertNotEqual(second_coverage, first_coverage)

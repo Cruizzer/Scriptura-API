@@ -41,10 +41,10 @@ class APISmokeTests(TestCase):
         # create theme and keyword matching one verse
         theme = Theme.objects.create(name="Greeting")
         theme.keywords.create(word="hello")
-        resp = self.client.get(reverse('theme-coverage', args=[theme.pk]))
+        resp = self.client.get(reverse('theme-analytics', args=[theme.pk]))
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertEqual(data['theme'], "Greeting")
         # at least one book should report keyword count >=1
-        counts = [c['keyword_count'] for c in data['coverage']]
+        counts = [c['keyword_count'] for c in data['occurrences']]
         self.assertTrue(any(c >= 1 for c in counts))
