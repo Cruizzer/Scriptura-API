@@ -1414,7 +1414,7 @@
                     <div class="analytics-card">
                         <div class="analytics-header">
                             <h3>Full Similarity Network</h3>
-                            <span style="font-size:12px; color:#6b7280;">OT left · NT right · k-NN graph (k=4)</span>
+                            <span style="font-size:12px; color:#6b7280;">OT left · NT right · API-driven · threshold 0.3</span>
                         </div>
                         <div class="similarity-legend">
                             <span><span class="legend-dot" style="background:#2563eb"></span>Old Testament</span>
@@ -1743,7 +1743,7 @@
                         this.sharedKeywords = [];
                     }
                 },
-                initializeVisNetwork() {
+                async initializeVisNetwork() {
                     const container = document.querySelector('#similarity-network');
                     if (!container) return;
 
@@ -1753,18 +1753,15 @@
                     const allBooks = BIBLE_BOOKS;
                     const isOT = b => OT_SET.has(b);
 
-                    // Build k-NN edges (k=4) from TFIDF_VECTORS
-                    const k = 4;
-                    const edgeMap = new Map();
-                    for (const src of allBooks) {
-                        const scores = allBooks.filter(b => b !== src).map(b => ({
-                            b, score: cosineSim(TFIDF_VECTORS[src], TFIDF_VECTORS[b])
-                        }));
-                        scores.sort((a, b) => b.score - a.score);
-                        for (const { b, score } of scores.slice(0, k)) {
-                            const key = [src, b].sort().join('|||');
-                            if (!edgeMap.has(key) || edgeMap.get(key) < score) edgeMap.set(key, score);
-                        }
+                    // Fetch edges from the similarity-graph API
+                    let apiEdges = [];
+                    try {
+                        const res = await fetch(`${this.apiBase}/analytics/similarity-graph/?metric=tfidf_cosine&threshold=0.3`);
+                        const data = await res.json();
+                        apiEdges = data.edges || [];
+                    } catch (e) {
+                        console.error('Failed to load similarity graph from API:', e);
+                        return;
                     }
 
                     const otBooks = allBooks.filter(b => isOT(b));
@@ -1785,11 +1782,9 @@
                         };
                     });
 
-                    const linkData = [];
-                    for (const [key, score] of edgeMap.entries()) {
-                        const [a, b] = key.split('|||');
-                        linkData.push({ source: nodeMap[a], target: nodeMap[b], weight: score });
-                    }
+                    const linkData = apiEdges
+                        .filter(e => nodeMap[e.source] && nodeMap[e.target])
+                        .map(e => ({ source: nodeMap[e.source], target: nodeMap[e.target], weight: e.weight }));
 
                     const edgePath = d => {
                         const { x: x1, y: y1, isOT: sOT } = d.source;
