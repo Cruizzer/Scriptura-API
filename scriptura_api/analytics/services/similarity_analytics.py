@@ -173,30 +173,16 @@ class SimilarityAnalyticsService:
         metric: str = "tfidf_cosine",
     ) -> Dict:
         """
-        Build nodes + edges for the D3 similarity network.
+        Build edges for the similarity network.
 
-        The 'testament' field on each node now carries one of:
-            "OT"  — Old Testament (Protestant + Catholic shared canon)
-            "NT"  — New Testament
-            "DC"  — Deuterocanonical (Tobit, Judith, 1-2 Macc, Wis, Sir, Bar)
-
-        The frontend uses this to colour nodes three ways.
+        Each edge represents a book pair whose similarity score meets or
+        exceeds the threshold. Book metadata is available via /api/books/.
         """
-        # Evaluate QuerySet once so we can iterate twice safely
         book_list = list(books)
 
-        book_names, testaments, sim_matrix = cls.compute_book_similarity_matrix(
+        book_names, _, sim_matrix = cls.compute_book_similarity_matrix(
             book_list, metric=metric
         )
-
-        nodes = []
-        for idx, book in enumerate(book_list):
-            nodes.append({
-                "id": book.name,
-                "book_id": book.id,
-                "testament": testaments[idx],
-                "size": book.chapters.count() * 10,
-            })
 
         edges = []
         for i in range(len(book_names)):
@@ -210,7 +196,6 @@ class SimilarityAnalyticsService:
                     })
 
         return {
-            "nodes": nodes,
             "edges": edges,
             "metric": metric,
             "threshold": similarity_threshold,

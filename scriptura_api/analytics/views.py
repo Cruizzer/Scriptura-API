@@ -77,20 +77,32 @@ class LexicalSimilarityGraphView(APIView):
     when books are added or removed (the hash changes).
 
     The "testament" field on each node is one of:
-        "OT"  Old Testament
-        "NT"  New Testament
-        "DC"  Deuterocanonical (Tobit, Judith, 1-2 Macc, Wisdom, Sirach, Baruch)
-
-    This lets the frontend render three distinct node colours.
+        "Old"  Old Testament
+        "New"  New Testament
     """
+
+    VALID_METRICS = {'tfidf_cosine', 'cosine', 'jaccard'}
 
     def get(self, request):
         metric = request.query_params.get('metric', 'tfidf_cosine')
+
+        if metric not in self.VALID_METRICS:
+            return Response(
+                {
+                    "error": f"Invalid metric '{metric}'.",
+                    "valid_metrics": sorted(self.VALID_METRICS),
+                },
+                status=400,
+            )
+
         try:
             threshold = float(request.query_params.get('threshold', 0.3))
             threshold = max(0.0, min(1.0, threshold))
         except (ValueError, TypeError):
-            threshold = 0.3
+            return Response(
+                {"error": "threshold must be a number between 0.0 and 1.0."},
+                status=400,
+            )
 
         # Round threshold to 2 dp so that 0.30000000001 doesn't create a
         # separate cache row from 0.3.
@@ -106,26 +118,48 @@ class LexicalSimilarityGraphView(APIView):
                 metric=metric,
                 threshold=threshold,
             )
-            return Response(cached.graph_data)
+            graph_data = cached.graph_data
         except SimilarityCache.DoesNotExist:
-            pass
+            # ── Compute ──────────────────────────────────────────────────
+            graph_data = SimilarityAnalyticsService.build_similarity_graph(
+                books,
+                similarity_threshold=threshold,
+                metric=metric,
+            )
+            # ── Store ────────────────────────────────────────────────────
+            SimilarityCache.objects.update_or_create(
+                book_set_hash=book_hash,
+                metric=metric,
+                threshold=threshold,
+                defaults={'graph_data': graph_data},
+            )
 
-        # ── Compute ──────────────────────────────────────────────────────
-        graph_data = SimilarityAnalyticsService.build_similarity_graph(
-            books,
-            similarity_threshold=threshold,
-            metric=metric,
-        )
+        # ── Summary stats (computed on every request, not stored in cache) ──
+        book_count = books.count()
+        edge_count = len(graph_data['edges'])
+        max_possible_edges = book_count * (book_count - 1) // 2
 
-        # ── Store ────────────────────────────────────────────────────────
-        SimilarityCache.objects.update_or_create(
-            book_set_hash=book_hash,
-            metric=metric,
-            threshold=threshold,
-            defaults={'graph_data': graph_data},
-        )
+        degree: dict = {}
+        for edge in graph_data['edges']:
+            degree[edge['source']] = degree.get(edge['source'], 0) + 1
+            degree[edge['target']] = degree.get(edge['target'], 0) + 1
 
-        return Response(graph_data)
+        most_connected = sorted(degree.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        weights = [e['weight'] for e in graph_data['edges']]
+
+        summary = {
+            "book_count": book_count,
+            "edge_count": edge_count,
+            "max_possible_edges": max_possible_edges,
+            "graph_density": round(edge_count / max_possible_edges, 4) if max_possible_edges else 0,
+            "avg_edge_weight": round(sum(weights) / len(weights), 4) if weights else 0,
+            "most_connected": [
+                {"book": book, "connections": deg} for book, deg in most_connected
+            ],
+        }
+
+        return Response({"summary": summary, **graph_data})
 
 
 class VerseRecommendationView(APIView):
