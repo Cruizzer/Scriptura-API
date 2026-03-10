@@ -193,3 +193,76 @@ class VerseRecommendationView(APIView):
             },
             "recommendations": recommendations,
         })
+
+
+class CollectionRecommendationsView(APIView):
+    """Get recommendations for verses in a collection."""
+
+    def get(self, request):
+        from core.models import Collection
+        
+        collection_id = request.query_params.get('collection_id')
+        if not collection_id:
+            return Response({"error": "collection_id parameter is required"}, status=400)
+
+        try:
+            collection = Collection.objects.prefetch_related('verses').get(id=collection_id)
+        except Collection.DoesNotExist:
+            return Response({"error": f"Collection {collection_id} not found"}, status=404)
+
+        try:
+            top_k = max(1, int(request.query_params.get('top_k', 5)))
+        except (ValueError, TypeError):
+            top_k = 5
+
+        # Get all verses in the collection
+        collection_verses = list(collection.verses.all())
+        if not collection_verses:
+            return Response({
+                "collection": {"id": collection.id, "name": collection.name},
+                "verse_count": 0,
+                "recommendations": []
+            })
+
+        # Get all verses for similarity search
+        all_verses = Verse.objects.select_related('chapter__book').all()
+
+        # Aggregate recommendations from all verses in the collection
+        recommendation_scores = {}  # verse_id -> aggregated score
+        recommendation_data = {}    # verse_id -> verse data
+
+        for verse in collection_verses:
+            recommendations = SimilarityAnalyticsService.find_similar_verses(
+                verse.text, all_verses, top_k=top_k * 2  # Get more to have better aggregation
+            )
+            
+            for rec in recommendations:
+                rec_id = rec['id']
+                # Skip if the recommended verse is already in the collection
+                if rec_id in [v.id for v in collection_verses]:
+                    continue
+                    
+                if rec_id not in recommendation_scores:
+                    recommendation_scores[rec_id] = 0
+                    recommendation_data[rec_id] = rec
+                
+                # Aggregate by adding similarity scores
+                recommendation_scores[rec_id] += rec['similarity']
+
+        # Sort by aggregated score and take top k
+        sorted_recs = sorted(
+            recommendation_scores.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:top_k]
+
+        final_recommendations = [
+            {**recommendation_data[rec_id], 'aggregated_similarity': round(score, 4)}
+            for rec_id, score in sorted_recs
+        ]
+
+        return Response({
+            "collection": {"id": collection.id, "name": collection.name},
+            "verse_count": len(collection_verses),
+            "recommendations": final_recommendations
+        })

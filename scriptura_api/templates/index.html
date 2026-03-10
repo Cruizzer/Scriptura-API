@@ -1328,6 +1328,46 @@
                                 </button>
                             </div>
                         </div>
+
+                        <div v-if="viewingCollectionVerses.length > 0" style="margin-top: 32px; padding-top: 24px; border-top: 2px solid #e5e7eb;">
+                            <h4 style="font-size: 16px; font-weight: 700; color: #111827; margin-bottom: 12px;">Recommended Verses</h4>
+                            <p style="font-size: 13px; color: #6b7280; margin-bottom: 16px;">Based on thematic similarity to verses in this collection:</p>
+                            
+                            <div v-if="collectionRecommendationsLoading" style="text-align: center; color: #9ca3af; padding: 20px;">
+                                Loading recommendations...
+                            </div>
+                            <div v-else-if="collectionRecommendations.length === 0" style="text-align: center; color: #9ca3af; padding: 20px;">
+                                No recommendations found.
+                            </div>
+                            <div v-else style="display: flex; flex-direction: column; gap: 12px;">
+                                <div 
+                                    v-for="rec in collectionRecommendations" 
+                                    :key="rec.id"
+                                    style="background: #fffbeb; border-left: 3px solid #f59e0b; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: start;"
+                                >
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">
+                                            {{ rec.reference }}
+                                            <span style="font-size: 12px; color: #6b7280; font-weight: 500;">
+                                                ({{ (rec.aggregated_similarity * 20).toFixed(0) }}%)
+                                            </span>
+                                        </div>
+                                        <div style="color: #374151; font-size: 14px; line-height: 1.5;">
+                                            {{ rec.text }}
+                                        </div>
+                                    </div>
+                                    <button 
+                                        @click="addVerseToCollection(viewingCollectionId, rec.id)"
+                                        style="background: #10b981; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; flex-shrink: 0; margin-left: 8px; font-size: 16px; transition: background 0.2s;"
+                                        @mouseover="$event.target.style.background = '#059669'"
+                                        @mouseleave="$event.target.style.background = '#10b981'"
+                                        title="Add to collection"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1662,6 +1702,8 @@
                     showCollectionsPanel: false,
                     viewingCollectionId: null,
                     viewingCollectionVerses: [],
+                    collectionRecommendations: [],
+                    collectionRecommendationsLoading: false,
                     simSelectedBook: '',
                     simTopK: 10,
                     simShowCross: true,
@@ -2242,15 +2284,68 @@
                 },
                 async viewCollectionVerses(collectionId) {
                     this.viewingCollectionId = collectionId;
+                    this.collectionRecommendations = [];
+                    this.collectionRecommendationsLoading = false;
                     try {
                         const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
                             credentials: 'same-origin'
                         });
                         const data = await res.json();
                         this.viewingCollectionVerses = data.verses || [];
+                        
+                        // Load recommendations if collection has verses
+                        if (this.viewingCollectionVerses.length > 0) {
+                            await this.loadCollectionRecommendations(collectionId);
+                        }
                     } catch (e) {
                         console.error('Error loading collection verses:', e);
                         this.viewingCollectionVerses = [];
+                    }
+                },
+                async loadCollectionRecommendations(collectionId) {
+                    this.collectionRecommendationsLoading = true;
+                    try {
+                        const res = await fetch(`${this.apiBase}/analytics/collection-recommendations/?collection_id=${collectionId}&top_k=5`, {
+                            credentials: 'same-origin'
+                        });
+                        const data = await res.json();
+                        this.collectionRecommendations = data.recommendations || [];
+                    } catch (e) {
+                        console.error('Error loading collection recommendations:', e);
+                        this.collectionRecommendations = [];
+                    } finally {
+                        this.collectionRecommendationsLoading = false;
+                    }
+                },
+                async addVerseToCollection(collectionId, verseId) {
+                    try {
+                        // Get current collection
+                        const getRes = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
+                            credentials: 'same-origin'
+                        });
+                        const collection = await getRes.json();
+                        
+                        // Add the new verse to existing verses
+                        const existingVerseIds = (collection.verses || []).map(v => v.id || v);
+                        const updatedVerseIds = [...new Set([...existingVerseIds, verseId])];
+                        
+                        // Update collection
+                        const updateRes = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ verses: updatedVerseIds })
+                        });
+                        
+                        if (updateRes.ok) {
+                            // Reload collection to show updated verses and new recommendations
+                            await this.viewCollectionVerses(collectionId);
+                        } else {
+                            alert('Error adding verse to collection');
+                        }
+                    } catch (e) {
+                        console.error('Error adding verse to collection:', e);
+                        alert('Error adding verse to collection');
                     }
                 },
                 async deleteCollection(collectionId) {
