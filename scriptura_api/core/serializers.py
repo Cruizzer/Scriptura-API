@@ -113,6 +113,45 @@ class CollectionSerializer(serializers.ModelSerializer):
 
 class CollectionWriteSerializer(serializers.ModelSerializer):
     """Simplified serializer for creating/updating collections."""
+    verses = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Verse.objects.all(),
+        required=False
+    )
+    themes = serializers.SerializerMethodField(read_only=False)
+
     class Meta:
         model = Collection
         fields = ['id', 'name', 'description', 'verses', 'themes', 'created_at', 'updated_at']
+
+    def get_themes(self, obj):
+        return list(obj.themes.values_list('id', flat=True))
+    
+    def to_internal_value(self, data):
+        # Handle themes as a list of IDs
+        if 'themes' in data and isinstance(data['themes'], list):
+            theme_ids = data['themes']
+            # Keep themes in data as-is for now, we'll handle it in create/update
+            from themes.models import Theme
+            themes = Theme.objects.filter(id__in=theme_ids)
+            if len(themes) != len(set(theme_ids)):
+                self.fail('invalid', 'One or more theme IDs do not exist.')
+        return super().to_internal_value(data)
+    
+    def create(self, validated_data):
+        themes = self.initial_data.get('themes', [])
+        instance = super().create(validated_data)
+        if themes:
+            from themes.models import Theme
+            theme_ids = [t if isinstance(t, int) else t.id for t in themes]
+            instance.themes.set(Theme.objects.filter(id__in=theme_ids))
+        return instance
+    
+    def update(self, instance, validated_data):
+        themes = self.initial_data.get('themes')
+        instance = super().update(instance, validated_data)
+        if themes is not None:
+            from themes.models import Theme
+            theme_ids = [t if isinstance(t, int) else t.id for t in themes]
+            instance.themes.set(Theme.objects.filter(id__in=theme_ids))
+        return instance

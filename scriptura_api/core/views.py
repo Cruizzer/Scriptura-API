@@ -94,24 +94,27 @@ class CollectionViewSet(viewsets.ModelViewSet):
     
     Endpoints:
     - GET /api/collections/ - List all collections for authenticated user
-    - POST /api/collections/ - Create a new collection (requires authentication)
+    - POST /api/collections/ - Create a new collection
     - GET /api/collections/{id}/ - Get a specific collection
-    - PUT /api/collections/{id}/ - Update a collection (requires authentication)
-    - DELETE /api/collections/{id}/ - Delete a collection (requires authentication)
+    - PUT /api/collections/{id}/ - Update a collection
+    - DELETE /api/collections/{id}/ - Delete a collection
     """
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'description']
 
     def get_queryset(self):
-        """Filter collections by authenticated user"""
+        """Filter collections by authenticated user, or return anonymous collections"""
         if self.request.user.is_authenticated:
             return Collection.objects.filter(user=self.request.user).prefetch_related('verses', 'themes')
-        return Collection.objects.none()
+        # Return anonymous (user=None) collections for unauthenticated users
+        return Collection.objects.filter(user__isnull=True).prefetch_related('verses', 'themes')
 
     def perform_create(self, serializer):
-        """Automatically set the user to the current authenticated user"""
-        serializer.save(user=self.request.user)
+        """Automatically set the user to the current authenticated user if available"""
+        if self.request.user.is_authenticated:
+            serializer.save(user=self.request.user)
+        else:
+            serializer.save()
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:

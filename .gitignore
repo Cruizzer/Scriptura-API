@@ -1,4 +1,7 @@
+
 # Custom additions:
+test_api.py
+
 venv/
 __pycache__/
 *.pyc
