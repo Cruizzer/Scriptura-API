@@ -35,7 +35,20 @@ class VerseSerializer(serializers.ModelSerializer):
 
     def get_section_title(self, obj):
         section_map = self.context.get('section_map', {})
-        return section_map.get(obj.number)
+        if section_map:
+            return section_map.get(obj.number)
+
+        # Fallback for endpoints that serialize Verse directly (e.g. /api/verses/)
+        # where chapter-level section map is not passed via serializer context.
+        prefetched = getattr(obj.chapter, '_prefetched_objects_cache', {}).get('sections')
+        if prefetched is not None:
+            for section in prefetched:
+                if section.start_verse == obj.number:
+                    return section.title
+            return None
+
+        section = obj.chapter.sections.filter(start_verse=obj.number).only('title').first()
+        return section.title if section else None
 
 
 class ChapterListSerializer(serializers.ModelSerializer):

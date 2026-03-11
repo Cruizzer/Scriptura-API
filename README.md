@@ -50,8 +50,12 @@ python manage.py migrate
 5. **Load biblical text data:**
 
 ```bash
+# Optional: regenerate scraped notes JSON from pg8300 source text
+python manage.py scrape_douay_notes --input ../pg8300.txt --output ../douay_notes_scraped.json
+
 python manage.py load_usfm ../engDRA_usfm --reset
 python manage.py load_pericopes ../engDRA_usfm/PericopeGroupedKJVVerses.json
+python manage.py load_douay_notes ../douay_notes_scraped.json
 ```
 
 6. **Start the development server:**

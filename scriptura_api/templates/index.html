@@ -362,13 +362,19 @@
         .footnote-ref {
             background: transparent;
             border: none;
-            color: #6b7280;
+            color: #2563eb;
             font-size: 11px;
             vertical-align: super;
             margin-left: 2px;
             cursor: pointer;
             font-weight: 700;
             padding: 0;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .footnote-ref:hover {
+            color: #1d4ed8;
         }
 
         .footnotes-panel {
@@ -391,6 +397,13 @@
             color: #374151;
             margin-bottom: 6px;
             line-height: 1.5;
+            border-radius: 6px;
+            padding: 2px 4px;
+            transition: background-color 0.25s ease;
+        }
+
+        .footnote-item.footnote-active {
+            background: rgba(102, 126, 234, 0.14);
         }
 
         /* Theme Management */
@@ -1026,27 +1039,29 @@
                                         <sup class="verse-number">{{ verse.number }}</sup>
                                         <span class="verse-text" v-html="highlightedQuery ? highlightText(verse.text, highlightedQuery) : verse.text"></span>
                                         <button
-                                            v-for="fn in verse.footnotes"
+                                            v-for="(fn, fnIndex) in verse.footnotes"
                                             :key="fn.id"
                                             class="footnote-ref"
-                                            @click.stop="alert(fn.text)"
+                                            @click.stop="scrollToFootnote(fn.id)"
                                             :title="fn.text"
                                         >
-                                            {{ fn.marker || '*' }}
+                                            {{ formatFootnoteMarker(fn.marker, fnIndex) }}
                                         </button>
                                     </span>
                                 </div>
                             </template>
                         </div>
 
-                    <div v-if="chapterFootnotes.length" class="footnotes-panel">
+                    <div id="chapter-footnotes" v-if="chapterFootnotes.length" class="footnotes-panel">
                         <h4>Footnotes</h4>
                         <div
-                            v-for="note in chapterFootnotes"
+                            v-for="(note, noteIndex) in chapterFootnotes"
                             :key="note.id"
                             class="footnote-item"
+                            :id="`footnote-${note.id}`"
+                            :class="{ 'footnote-active': highlightedFootnoteId === note.id }"
                         >
-                            <strong>{{ note.marker || '*' }}</strong> {{ note.text }}
+                            <strong>{{ formatFootnoteMarker(note.marker, noteIndex) }}</strong> {{ note.text }}
                         </div>
                     </div>
 
@@ -1738,6 +1753,7 @@
                     simShowSame: true,
                     simResults: [],
                     sharedKeywords: [],
+                    highlightedFootnoteId: null,
                     authUser: {
                         isAuthenticated: false,
                         avatarUrl: '',
@@ -1788,6 +1804,36 @@
                 }
             },
             methods: {
+                formatFootnoteMarker(marker, index = null) {
+                    if (marker && /^DR\d*$/i.test(marker)) {
+                        return index === null ? 'Note' : `Note ${index + 1}`;
+                    }
+                    if (!marker) {
+                        return index === null ? '*' : `*${index + 1}`;
+                    }
+                    return marker;
+                },
+                scrollToFootnote(noteId) {
+                    this.$nextTick(() => {
+                        const panel = document.getElementById('chapter-footnotes');
+                        const target = document.getElementById(`footnote-${noteId}`);
+
+                        if (target) {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            this.highlightedFootnoteId = noteId;
+                            setTimeout(() => {
+                                if (this.highlightedFootnoteId === noteId) {
+                                    this.highlightedFootnoteId = null;
+                                }
+                            }, 1800);
+                            return;
+                        }
+
+                        if (panel) {
+                            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    });
+                },
                 getCsrfToken() {
                     const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
                     return match ? decodeURIComponent(match[1]) : '';

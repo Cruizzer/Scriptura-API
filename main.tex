@@ -1,0 +1,181 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+
+\title{Scriptura API: Technical Report}
+\author{Hansel D'Cruz}
+\date{11 March 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Project Overview}
+Scriptura API is a REST API for the Douay--Rheims Bible corpus. It provides hierarchical text access (books, chapters, verses), user-curated collections, theme coverage, and lexical similarity recommendations.
+
+The design goal was to meet CRUD requirements and add useful analytics without overengineering. The API returns JSON over HTTP and is documented with OpenAPI/Swagger.
+
+\section{Technology Stack and Rationale}
+\subsection{Programming Language: Python}
+I selected Python because it supports rapid prototyping, is easy to read, and has a lower learning curve for this assessment. The priority here is API quality, not spending time learning extra tooling.
+
+In this project, Python fits naturally because I perform statistical and text-analysis tasks for theme coverage and lexical similarity. It let me implement both standard REST endpoints and analytics endpoints in one consistent codebase. Python's concise syntax made it practical to quickly build and refine collection CRUD, theme coverage analytics, similarity graph generation, and verse recommendation flows. I also have industry experience with Python in web and data-driven work, so I could apply good practices early, including project structure, validation, and tests for critical paths. The language is clear to review, especially in analytics services and serializer logic, and the ecosystem used in this project (Django, DRF, django-filter, drf-spectacular, django-allauth) reduced low-level boilerplate and implementation risk.
+
+\subsection{Framework: Django + Django REST Framework}
+I chose Django 4.2 with Django REST Framework (DRF) for structure, speed, and reliability.
+
+Django follows the Model--Template--View (MTV) pattern, conceptually close to MVC. In this API-first project, this translated into a practical separation of concerns:
+\begin{itemize}[leftmargin=*]
+	\item \textbf{Models}: represent scripture hierarchy (Book, Chapter, Verse) and user curation entities (Collection, Theme relationships).
+	\item \textbf{Views/ViewSets}: handle HTTP request-response lifecycle, including standard resource endpoints and custom analytics endpoints.
+	\item \textbf{Serializers}: define API contracts, validation, and transformation between model instances and JSON payloads.
+\end{itemize}
+
+Additional reasons for Django/DRF selection:
+\begin{itemize}[leftmargin=*]
+	\item \textbf{Integrated features}: ORM, migrations, authentication, admin, and secure defaults reduced boilerplate.
+	\item \textbf{API productivity}: DRF ViewSets, routers, pagination, and filtering kept endpoint design consistent.
+	\item \textbf{Documentation}: \texttt{drf-spectacular} generated OpenAPI docs that are easy to test in Swagger.
+	\item \textbf{Maintainability}: Django app boundaries align with this codebase split (core, analytics, themes, ingestion).
+\end{itemize}
+
+\subsection{Database: SQLite and Why}
+The current implementation uses SQLite for local development and demonstration. This fits the project because the data is strongly relational: \texttt{Book $\rightarrow$ Chapter $\rightarrow$ Verse}, plus linked entities such as \texttt{Section}, \texttt{Footnote}, \texttt{Theme}, and \texttt{Collection}. These relationships are central to the API and are queried frequently through joins and filtered lookups.
+
+An SQL database is a better fit than a NoSQL document store for this model because it gives explicit foreign keys, referential integrity, many-to-many support, and transactional updates. In this project, that matters for collection updates (verses/themes links), analytics precomputation tables, and consistent retrieval of nested scripture data. A document-first NoSQL design could duplicate data across documents and make relationship updates and consistency checks harder.
+
+SQLite was selected for now because it has zero setup, a predictable local environment, and fast migration/test cycles. The trade-off is concurrency at production scale. For future deployment, PostgreSQL is the preferred upgrade path for stronger indexing, better concurrent write handling, and broader scaling options.
+
+\subsection{Supporting Libraries}
+Key supporting choices:
+\begin{itemize}[leftmargin=*]
+	\item \texttt{django-filter}: query parameter filtering,
+	\item \texttt{drf-spectacular}: OpenAPI schema and Swagger UI,
+	\item \texttt{django-allauth}: authentication integration (including Google OAuth),
+	\item \texttt{python-dotenv}: environment-variable based configuration,
+	\item \texttt{django-cors-headers}: CORS management for browser-based clients.
+\end{itemize}
+
+\section{Architecture and Design Choices}
+\subsection{Modular App Structure}
+The project is split into focused Django apps:
+\begin{itemize}[leftmargin=*]
+	\item \textbf{core}: canonical text models and main API endpoints,
+	\item \textbf{analytics}: text metrics, similarity graph, recommendation logic,
+	\item \textbf{themes}: thematic classification and keyword management,
+	\item \textbf{ingestion}: data-loading pipeline from USFM and related files.
+\end{itemize}
+This reduces coupling and keeps responsibilities clear.
+
+\subsection{Layered Design Decisions}
+I deliberately used a semi-layered architecture:
+\begin{itemize}[leftmargin=*]
+	\item \textbf{Repository layer} (e.g., \texttt{core/repositories.py}) isolates ORM query access,
+	\item \textbf{Service layer} (analytics services) holds reusable NLP/statistical logic,
+	\item \textbf{Serializer split} between read and write serializers for \texttt{Collection} to control response shape and validation,
+	\item \textbf{ViewSets + APIViews}: ViewSets for standard CRUD/read routes, APIViews for custom analytics workflows.
+\end{itemize}
+
+\subsection{Data Model and Relationships}
+The data model supports both scripture structure and user interaction:
+\begin{itemize}[leftmargin=*]
+	\item \texttt{Book $\rightarrow$ Chapter $\rightarrow$ Verse} hierarchical traversal,
+	\item optional \texttt{Section} and \texttt{Footnote} for richer text context,
+	\item \texttt{Collection} as user-curated many-to-many mapping to verses and themes,
+	\item \texttt{BookSummary}, \texttt{ThemeCoverageCache}, and \texttt{SimilarityCache} for precomputed/cached analytics payloads.
+\end{itemize}
+
+\subsection{API Design and Error Conventions}
+The API uses REST-style endpoint naming and standard status codes:
+\begin{itemize}[leftmargin=*]
+	\item \texttt{200 OK} for successful reads/updates,
+	\item \texttt{201 Created} for successful resource creation,
+	\item \texttt{400 Bad Request} for invalid query/body input,
+	\item \texttt{404 Not Found} for missing resources.
+\end{itemize}
+All endpoints return JSON for consistent client behaviour.
+
+\section{Testing Strategy and Quality Approach}
+Testing was implemented with Django's test framework and the DRF test client.
+
+\subsection{What Was Tested}
+\begin{itemize}[leftmargin=*]
+	\item unit checks for analytics metrics (word count, entropy, TTR, hapax),
+	\item API smoke tests for core routes and filtering/search behaviour,
+	\item cache behaviour tests for theme coverage (creation and refresh on keyword changes),
+	\item endpoint-level checks for status-code correctness.
+\end{itemize}
+
+\subsection{Error Handling and Robustness}
+Implemented edge handling includes:
+\begin{itemize}[leftmargin=*]
+	\item validation of similarity metric values,
+	\item threshold parsing/clamping for numeric query parameters,
+	\item defensive checks for required parameters like \texttt{verse\_id} and \texttt{collection\_id},
+	\item not-found behaviour for missing verses/collections/themes.
+\end{itemize}
+
+\section{Challenges, Reflection, and Lessons Learned}
+\subsection{Main Challenges}
+\begin{enumerate}[leftmargin=*]
+	\item \textbf{Balancing readability and performance}: nested scripture responses are expensive; selective prefetching and list/detail serializers improved response cost.
+	\item \textbf{Analytics cost}: pairwise similarity over books is computationally expensive; cache-backed responses were necessary to keep endpoints responsive.
+	\item \textbf{Schema consistency}: simple write payloads with richer read payloads required explicit read/write serializer separation.
+	\item \textbf{Data integrity for relationships}: handling many-to-many updates for themes/verses in collection writes required careful validation and update sequencing.
+\end{enumerate}
+
+\subsection{Lessons Learned}
+\begin{itemize}[leftmargin=*]
+	\item Early architectural boundaries (repositories/services) reduce refactor cost later.
+	\item Cache key strategy matters as much as cache storage itself.
+	\item Clear API docs and predictable response shapes reduce debugging and demo risk.
+	\item Good testing is not only about coverage, but about targeting failure-prone integration points.
+\end{itemize}
+
+\section{Limitations and Future Improvements}
+\subsection{Current Limitations}
+\begin{itemize}[leftmargin=*]
+	\item SQLite limits production-grade concurrency.
+	\item Collection access policy is intentionally permissive in places and can be tightened.
+	\item Recommendation quality is lexical and bag-of-words based; deeper semantic/contextual methods are not yet used.
+	\item Test coverage is present but can be expanded for edge cases and permissions.
+\end{itemize}
+
+\subsection{Future Development}
+\begin{itemize}[leftmargin=*]
+	\item migrate to PostgreSQL and add tuned indexes,
+	\item strengthen access control and object-level permissions,
+	\item add async/background task processing for heavy analytics,
+	\item add benchmark suite and load testing,
+	\item evaluate embedding-based semantic retrieval alongside TF-IDF/cosine pipelines,
+	\item package CI checks (tests + lint + schema validation) in GitHub Actions.
+\end{itemize}
+
+\section{Generative AI Declaration and Critical Analysis}
+\subsection*{Declaration}
+Generative AI tools were used as assistive support for brainstorming implementation options, clarifying framework usage, and drafting/refining documentation. Final design decisions, code integration, debugging, validation, and testing were performed by the author.
+
+\subsection*{How GenAI Was Used Responsibly}
+\begin{itemize}[leftmargin=*]
+	\item Used to accelerate routine tasks (boilerplate ideas, endpoint/documentation phrasing).
+	\item Outputs were treated as suggestions, not authoritative truth.
+	\item All generated suggestions were manually reviewed, adapted, and tested in project context.
+\end{itemize}
+
+\subsection*{Critical Reflection on GenAI Usage}
+\begin{itemize}[leftmargin=*]
+	\item \textbf{Benefits}: improved iteration speed and reduced context-switch overhead.
+	\item \textbf{Risks}: inaccurate assumptions, over-generalised patterns, and hidden logic errors if accepted uncritically.
+	\item \textbf{Mitigation}: explicit verification with tests, runtime checks, and source-level understanding before committing changes.
+\end{itemize}
+This reflective workflow helped maintain academic integrity while using contemporary tooling productively.
+
+\section{Conclusion}
+The final API demonstrates applied software engineering through modular architecture, justified stack choices, standards-based endpoint design, analytics extensions, and reflective GenAI use. The implementation meets minimum technical requirements and extends them with additional analytical functionality.
+
+\end{document}

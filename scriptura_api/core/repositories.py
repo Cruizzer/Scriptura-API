@@ -30,7 +30,7 @@ class ChapterRepository:
 class VerseRepository:
     @staticmethod
     def all():
-        return Verse.objects.select_related('chapter__book').all()
+        return Verse.objects.select_related('chapter__book').prefetch_related('chapter__sections', 'footnotes').all()
 
     @staticmethod
     def search(text_contains: str):
