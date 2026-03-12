@@ -1,12 +1,11 @@
 from django.contrib import admin
 from django.urls import path, include
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from core.frontend_views import FrontendView, GoogleSigninView, auth_status_view
+from core.frontend_views import FrontendView, auth_status_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('accounts/', include('allauth.urls')),
-    path('auth/google/', GoogleSigninView.as_view(), name='google-signin-page'),
+    path('auth/google/', FrontendView.as_view(), name='google-signin-page'),
     path('auth/status/', auth_status_view, name='auth-status'),
     path('api/', include('core.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

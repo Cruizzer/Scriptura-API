@@ -42,12 +42,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.sites',  # Required for allauth
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.google',
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',
     'django_filters',
     'core',
@@ -56,8 +53,6 @@ INSTALLED_APPS = [
     'ingestion',
 ]
 
-SITE_ID = 1
-
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -65,7 +60,6 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -147,6 +141,7 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
@@ -157,8 +152,41 @@ REST_FRAMEWORK = {
 # drf-spectacular configuration for automatic OpenAPI schema
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Scriptura API',
-    'DESCRIPTION': 'Bible analytics REST API',
     'VERSION': '1.0.0',
+    'DESCRIPTION': (
+        '## Scriptura Bible Analytics API\n\n'
+        'A REST API for the Douay-Rheims Bible with full-text search, thematic analytics, '
+        'lexical similarity graphs, and user-curated verse collections.\n\n'
+        '### Authentication\n'
+        'Most read endpoints are **public** (no token required). '
+        'Write operations on collections require a **JWT Bearer token**.\n\n'
+        '**How to authenticate here:**\n'
+        '1. Sign in via the main app at `/` to receive your `access` token. '
+        'Copy it from browser DevTools → Application → Local Storage → `access_token`, '
+        'or call `POST /api/auth/google-token/` directly with a Google `id_token`.\n'
+        '2. Click the **Authorize 🔒** button at the top of this page.\n'
+        '3. In the **bearerAuth (http, Bearer)** field paste your access token and click Authorize.\n\n'
+        'Tokens expire after **1 hour**. Refresh via `POST /api/auth/token/refresh/`.'
+    ),
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SECURITY': [{'bearerAuth': []}],
+    'SWAGGER_UI_SETTINGS': {
+        'persistAuthorization': True,
+        'displayRequestDuration': True,
+        'filter': True,
+        'tryItOutEnabled': True,
+        'defaultModelsExpandDepth': 1,
+    },
+    'SCHEMA_PATH_PREFIX': r'/api/',
+    'SECURITY_DEFINITIONS': {
+        'bearerAuth': {
+            'type': 'http',
+            'scheme': 'bearer',
+            'bearerFormat': 'JWT',
+            'description': 'Paste your JWT access token here (without the "Bearer " prefix).',
+        }
+    },
 }
 
 # CORS configuration for frontend
@@ -166,45 +194,27 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
 ]
-
-# Django-allauth configuration
-AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
-]
-
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
-
-SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'SCOPE': [
-            'profile',
-            'email',
-        ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
-            'prompt': 'consent',
-        },
-        'APP': {
-            'client_id': os.environ['GOOGLE_CLIENT_ID'],
-            'secret': os.environ['GOOGLE_CLIENT_SECRET'],
-            'key': ''
-        }
-    }
-}
-
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
 CORS_ALLOW_CREDENTIALS = True
 
-# Allauth social account settings
-SOCIALACCOUNT_AUTO_SIGNUP = True
-SOCIALACCOUNT_ADAPTER = 'core.adapters.SettingsBasedSocialAccountAdapter'
-SOCIALACCOUNT_LOGIN_ON_GET = True
+# Google Identity Services uses a popup flow that needs opener access to
+# communicate the credential back to the main window.
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
+
+# Google OAuth client id used to verify Google-issued id_token on /api/auth/google-token/
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# SimpleJWT configuration
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+}
