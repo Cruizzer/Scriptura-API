@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter
 from django.shortcuts import get_object_or_404
 from hashlib import sha256
 
@@ -18,29 +19,38 @@ from analytics.services.similarity_analytics import SimilarityAnalyticsService
 
 @extend_schema_view(
     list=extend_schema(
-        description="List precomputed analytics summaries for all books"
+        summary="List book analytics summaries",
+        description=(
+            "Returns precomputed linguistic statistics for every book of the Bible.\n\n"
+            "Fields include: `word_count`, `vocab_size`, `type_token_ratio` (lexical richness), "
+            "`entropy` (information density), and `hapax_count` (words appearing exactly once).\n\n"
+            "**Authentication:** not required."
+        ),
+        tags=['Analytics'],
     ),
     retrieve=extend_schema(
-        description="Get detailed analytics for a specific book including word count, entropy, vocabulary richness, and hapax legomena"
-    )
+        summary="Get analytics for one book",
+        description=(
+            "Returns the full precomputed analytics record for a single book identified "
+            "by its `book_summary_id`.\n\n"
+            "**Authentication:** not required."
+        ),
+        parameters=[
+            OpenApiParameter('id', int, OpenApiParameter.PATH,
+                             description='Primary key of the BookSummary record (use the `id` '
+                                         'field from `GET /api/book-summaries/`).')
+        ],
+        tags=['Analytics'],
+    ),
 )
 class BookSummaryViewSet(viewsets.ReadOnlyModelViewSet):
-    """Read-only access to precomputed book analytics.
-    
-    Access linguistic statistics (entropy, type-token ratio, hapax count) for each book.
-    **No authentication required.**
-    """
+    """Precomputed linguistic analytics for each book of the Bible."""
     queryset = BookSummary.objects.select_related('book').all()
     serializer_class = BookSummarySerializer
 
 
 class ThemeAnalyticsView(APIView):
-    """Theme keyword coverage analysis.
-    
-    Analyze how keywords in a theme are distributed across all books.
-    Returns keyword frequency for each book for the specified theme.
-    **No authentication required.**
-    """
+    """Keyword coverage analysis for a single theme across all books."""
 
     @staticmethod
     def _keyword_signature(words):
@@ -60,9 +70,36 @@ class ThemeAnalyticsView(APIView):
         return coverage
 
     @extend_schema(
-        description="Get theme keyword occurrences across all books using a theme ID",
-        parameters=[],
-        responses={200: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT}
+        summary="Theme keyword occurrences by book",
+        description=(
+            "For the theme identified by `id`, returns how often each of its "
+            "keywords appears in every book of the Bible.\n\n"
+            "Results are cached — the first call may be slower. The cache is "
+            "automatically invalidated if the theme's keyword list changes.\n\n"
+            "**Authentication:** not required."
+        ),
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'theme_id':    {'type': 'integer'},
+                    'theme':       {'type': 'string'},
+                    'keywords':    {'type': 'array', 'items': {'type': 'string'}},
+                    'occurrences': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'book':          {'type': 'string'},
+                                'keyword_count': {'type': 'integer'},
+                            }
+                        }
+                    },
+                }
+            },
+            404: OpenApiTypes.OBJECT,
+        },
+        tags=['Analytics'],
     )
     def get(self, request, pk):
         theme = get_object_or_404(Theme.objects.prefetch_related('keywords'), pk=pk)
@@ -89,29 +126,37 @@ class ThemeAnalyticsView(APIView):
 
 
 class LexicalSimilarityGraphView(APIView):
-    """Book similarity network visualization.
-    
-    Compute and return a graph of semantic similarities between biblical books based on
-    TF-IDF, cosine, or Jaccard similarity metrics. Results are cached automatically.
-    
-    Query parameters:
-    - metric: "tfidf_cosine" (default) | "cosine" | "jaccard"
-    - threshold: float 0-1, default 0.3 (minimum similarity to include edge)
-    
-    Returns nodes (books) and edges (similarities) forming a network graph, along with
-    summary statistics (density, average weight, most-connected books).
-    **No authentication required.**
-    """
+    """Compute and return a book-similarity network graph."""
 
     VALID_METRICS = {'tfidf_cosine', 'cosine', 'jaccard'}
 
     @extend_schema(
-        description="Get the book similarity graph with optional metric and threshold filtering",
+        summary="Book lexical similarity graph",
+        description=(
+            "Returns a network graph where **nodes** are biblical books and **edges** "
+            "connect books whose text similarity exceeds `threshold`.\n\n"
+            "Also returns summary statistics: graph density, average edge weight, and "
+            "the five most-connected books.\n\n"
+            "Results are cached — the first call for a given `metric` + `threshold` "
+            "combination may be slow.\n\n"
+            "**Authentication:** not required."
+        ),
         parameters=[
-            {'name': 'metric', 'description': 'Similarity metric: tfidf_cosine, cosine, or jaccard', 'schema': {'type': 'string', 'default': 'tfidf_cosine'}},
-            {'name': 'threshold', 'description': 'Minimum similarity to include edge (0-1)', 'schema': {'type': 'number', 'default': 0.3}},
+            OpenApiParameter(
+                'metric', str, OpenApiParameter.QUERY,
+                description='Similarity algorithm to use.',
+                enum=['tfidf_cosine', 'cosine', 'jaccard'],
+                default='tfidf_cosine',
+                required=False,
+            ),
+            OpenApiParameter(
+                'threshold', float, OpenApiParameter.QUERY,
+                description='Minimum similarity score (0–1) for an edge to be included. Default: `0.3`.',
+                required=False,
+            ),
         ],
-        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT}
+        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT},
+        tags=['Analytics'],
     )
 
     def get(self, request):
@@ -194,21 +239,30 @@ class LexicalSimilarityGraphView(APIView):
 
 
 class VerseRecommendationView(APIView):
-    """Find verses most similar to a reference verse.
-    
-    Given a verse ID, returns the top-k most semantically similar verses from the
-    entire Bible using TF-IDF cosine similarity on verse text.
-    
-    **No authentication required.**
-    """
+    """Find verses most semantically similar to a reference verse."""
 
     @extend_schema(
-        description="Get verses most similar to a reference verse",
+        summary="Verse similarity recommendations",
+        description=(
+            "Given a `verse_id`, returns the `top_k` most semantically similar verses "
+            "from across the entire Bible, ranked by TF-IDF cosine similarity.\n\n"
+            "Use `GET /api/verses/` to find verse IDs.\n\n"
+            "**Authentication:** not required."
+        ),
         parameters=[
-            {'name': 'verse_id', 'description': 'The ID of the reference verse (required)', 'schema': {'type': 'integer'}},
-            {'name': 'top_k', 'description': 'Number of recommendations to return (default 5)', 'schema': {'type': 'integer', 'default': 5}},
+            OpenApiParameter(
+                'verse_id', int, OpenApiParameter.QUERY,
+                description='Primary key of the reference verse (required).',
+                required=True,
+            ),
+            OpenApiParameter(
+                'top_k', int, OpenApiParameter.QUERY,
+                description='Number of similar verses to return. Default: `5`.',
+                required=False,
+            ),
         ],
-        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT}
+        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT},
+        tags=['Analytics'],
     )
 
     def get(self, request):
@@ -242,22 +296,31 @@ class VerseRecommendationView(APIView):
 
 
 class CollectionRecommendationsView(APIView):
-    """Get verse recommendations based on a collection.
-    
-    Given a collection ID, aggregates similarities from all verses in the collection
-    and returns the top-k most similar verses not already in the collection.
-    Useful for discovering thematically related verses.
-    
-    **No authentication required.**
-    """
+    """Recommend new verses based on the verses already in a collection."""
 
     @extend_schema(
-        description="Get verses recommended based on similarity to a collection's verses",
+        summary="Collection-based verse recommendations",
+        description=(
+            "Aggregates TF-IDF cosine similarities across all verses in a collection "
+            "and returns the `top_k` verses (not already in the collection) that are "
+            "most thematically related.\n\n"
+            "Use `GET /api/collections/` to find collection IDs.\n\n"
+            "**Authentication:** not required (public collections only for unauthenticated callers)."
+        ),
         parameters=[
-            {'name': 'collection_id', 'description': 'The ID of the collection (required)', 'schema': {'type': 'integer'}},
-            {'name': 'top_k', 'description': 'Number of recommendations to return (default 5)', 'schema': {'type': 'integer', 'default': 5}},
+            OpenApiParameter(
+                'collection_id', int, OpenApiParameter.QUERY,
+                description='Primary key of the collection (required).',
+                required=True,
+            ),
+            OpenApiParameter(
+                'top_k', int, OpenApiParameter.QUERY,
+                description='Number of recommendations to return. Default: `5`.',
+                required=False,
+            ),
         ],
-        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT}
+        responses={200: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT},
+        tags=['Analytics'],
     )
 
     def get(self, request):
