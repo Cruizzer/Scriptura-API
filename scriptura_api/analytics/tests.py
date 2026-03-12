@@ -67,3 +67,30 @@ class ThemeCoverageCacheTests(TestCase):
         second_coverage = second.json()['occurrences']
 
         self.assertNotEqual(second_coverage, first_coverage)
+
+
+class AnalyticsEndpointValidationTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        book = Book.objects.create(name="Beta", testament="NT")
+        chapter = Chapter.objects.create(book=book, number=1)
+        self.verse = Verse.objects.create(chapter=chapter, number=1, text="faith hope charity")
+
+    def test_similarity_graph_rejects_invalid_metric(self):
+        response = self.client.get(reverse('similarity-graph'), {'metric': 'invalid'})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('valid_metrics', response.json())
+
+    def test_verse_recommendations_requires_verse_id(self):
+        response = self.client.get(reverse('verse-recommendations'))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.json())
+
+    def test_verse_recommendations_returns_reference_verse(self):
+        response = self.client.get(reverse('verse-recommendations'), {'verse_id': self.verse.id, 'top_k': 3})
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.json()
+        self.assertEqual(payload['reference_verse']['id'], self.verse.id)
+        self.assertIn('recommendations', payload)
