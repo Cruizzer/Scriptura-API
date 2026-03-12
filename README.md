@@ -24,7 +24,7 @@ Scriptura API is a Django REST Framework application designed to serve biblical 
 1. **Clone the repository and navigate to the project:**
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Cruizzer/Scriptura-API.git
 cd Scriptura-API
 ```
 
@@ -50,14 +50,15 @@ python manage.py migrate
 
 5. **Load biblical text data:**
 
-```bash
-# Optional: regenerate scraped notes JSON from pg8300 source text
-python manage.py scrape_douay_notes --input ../pg8300.txt --output ../douay_notes_scraped.json
+All required data files (`engDRA_usfm/`, `douay_notes_scraped.json`, `PericopeGroupedKJVVerses.json`) are included in the repository. Run the following commands from inside the `scriptura_api/` directory:
 
+```bash
 python manage.py load_usfm ../engDRA_usfm --reset
 python manage.py load_pericopes ../engDRA_usfm/PericopeGroupedKJVVerses.json
 python manage.py load_douay_notes ../douay_notes_scraped.json
 ```
+
+> **Note:** The `scrape_douay_notes` command is only needed if you want to regenerate `douay_notes_scraped.json` from raw source text (`pg8300.txt`). This is not required for normal setup. The text is borrowed from [text](https://www.gutenberg.org/cache/epub/8300/pg8300.txt)
 
 6. **Start the development server:**
 
