@@ -6,6 +6,10 @@
     <title>Scriptura - Bible Analytics</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        window.GOOGLE_CLIENT_ID = "{{ google_client_id|escapejs }}";
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Crimson+Text:wght@400;600;700&display=swap');
 
@@ -83,26 +87,43 @@
             pointer-events: auto;
         }
 
+        .google-signin-wrap {
+            display: inline-flex;
+            align-items: center;
+        }
+
         .google-signin-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 40px;
+        }
+
+        .google-signin-btn > div {
+            min-width: 220px;
+        }
+
+        .google-signin-fallback {
             display: inline-flex;
             align-items: center;
             gap: 8px;
             background: #667eea;
             color: #fff;
-            text-decoration: none;
             border: 1px solid #667eea;
             padding: 9px 14px;
-            border-radius: 9px;
+            border-radius: 999px;
             font-size: 14px;
             font-weight: 600;
+            cursor: pointer;
             transition: all 0.2s ease;
         }
 
-        .google-signin-btn:hover {
+        .google-signin-fallback:hover {
             background: #5568d3;
             border-color: #5568d3;
         }
 
+        .google-signin-fallback svg,
         .google-signin-btn svg {
             width: 16px;
             height: 16px;
@@ -889,18 +910,21 @@
                 </button>
             </div>
             <div class="auth-links">
-                <a v-if="!authUser.isAuthenticated" href="/auth/google/" class="google-signin-btn">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="currentColor"/>
-                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="currentColor"/>
-                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="currentColor"/>
-                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="currentColor"/>
-                    </svg>
-                    Sign in with Google
-                </a>
+                <div v-if="!authUser.isAuthenticated" class="google-signin-wrap">
+                    <button v-if="!googleButtonReady" @click="signInWithGoogle" class="google-signin-fallback" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="currentColor"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="currentColor"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="currentColor"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="currentColor"/>
+                        </svg>
+                        Sign in with Google
+                    </button>
+                    <div id="google-signin-container" class="google-signin-btn" :style="{ display: googleButtonReady ? 'inline-flex' : 'none' }"></div>
+                </div>
                 <div v-else class="auth-user">
                     <img v-if="authUser.avatarUrl" :src="authUser.avatarUrl" alt="Profile" class="auth-avatar">
-                    <a href="/accounts/logout/" class="signout-btn">Sign out</a>
+                    <button @click="signOut" class="signout-btn" type="button">Sign out</button>
                 </div>
             </div>
         </div>
@@ -1367,7 +1391,7 @@
                                 fontSize: '15px'
                             }"
                         >
-                            Private Collections
+                            My Collections
                         </button>
                     </div>
 
@@ -1380,22 +1404,28 @@
                             <div 
                                 v-for="coll in publicCollections" 
                                 :key="coll.id"
-                                style="background: #f9fafb; border: 1px solid #e5e7eb; padding: 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                                style="background: #f9fafb; border: 1px solid #e5e7eb; padding: 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; position: relative;"
                                 @mouseover="$event.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'"
                                 @mouseleave="$event.currentTarget.style.boxShadow = 'none'"
                                 @click="viewCollectionVerses(coll.id)"
                             >
-                                <h3 style="font-size: 16px; font-weight: 700; color: #111827; margin: 0 0 8px 0;">{{ coll.name }}</h3>
+                                <!-- Only the owner sees edit/delete -->
+                                <div v-if="Number(coll.user) === Number(authUser.id)" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 6px;" @click.stop>
+                                    <button @click="openEditCollection(coll)" style="background: #667eea; color: white; border: none; padding: 3px 9px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">Edit</button>
+                                    <button @click="deleteCollection(coll.id)" style="background: #ef4444; color: white; border: none; padding: 3px 9px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">Delete</button>
+                                </div>
+                                <h3 style="font-size: 16px; font-weight: 700; color: #111827; margin: 0 0 6px 0; padding-right: 110px;">{{ coll.name }}</h3>
+                                <p style="font-size: 12px; color: #a78bfa; margin: 0 0 6px 0; font-weight: 600;" v-if="coll.created_by_username">Created by {{ coll.created_by_username }}</p>
                                 <p style="font-size: 13px; color: #6b7280; margin: 0 0 12px 0; line-height: 1.4;">{{ coll.description || 'No description' }}</p>
                                 <div style="font-size: 12px; color: #9ca3af;">{{ coll.verses ? coll.verses.length : 0 }} verse{{ coll.verses && coll.verses.length !== 1 ? 's' : '' }}</div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Private Collections -->
+                    <!-- My Collections -->
                     <div v-if="collectionsTab === 'private' && authUser.isAuthenticated">
                         <div v-if="privateCollections.length === 0" style="text-align: center; color: #9ca3af; padding: 40px;">
-                            No private collections yet. Create one to get started!
+                            No collections yet. Create one to get started!
                         </div>
                         <div v-else style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
                             <div 
@@ -1406,19 +1436,149 @@
                                 @mouseleave="$event.currentTarget.style.boxShadow = 'none'"
                                 @click="viewCollectionVerses(coll.id)"
                             >
-                                <div style="position: absolute; top: 12px; right: 12px;">
-                                    <button 
-                                        @click.stop="deleteCollection(coll.id)"
-                                        style="background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;"
-                                    >
-                                        Delete
-                                    </button>
+                                <!-- Edit + Delete actions -->
+                                <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 6px;" @click.stop>
+                                    <button @click="openEditCollection(coll)" style="background: #667eea; color: white; border: none; padding: 3px 9px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">Edit</button>
+                                    <button @click="deleteCollection(coll.id)" style="background: #ef4444; color: white; border: none; padding: 3px 9px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">Delete</button>
                                 </div>
-                                <h3 style="font-size: 16px; font-weight: 700; color: #1e40af; margin: 0 0 8px 0;">{{ coll.name }}</h3>
-                                <p style="font-size: 13px; color: #1e3a8a; margin: 0 0 12px 0; line-height: 1.4;">{{ coll.description || 'No description' }}</p>
+                                <h3 style="font-size: 16px; font-weight: 700; color: #1e40af; margin: 0 0 6px 0; padding-right: 110px;">{{ coll.name }}</h3>
+                                <!-- Visibility badge -->
+                                <span :style="{ fontSize: '11px', fontWeight: '700', padding: '2px 7px', borderRadius: '12px', marginBottom: '8px', display: 'inline-block', background: coll.is_public ? '#ede9fe' : '#e0f2fe', color: coll.is_public ? '#7c3aed' : '#0369a1' }">
+                                    {{ coll.is_public ? '🌐 Public' : '🔒 Private' }}
+                                </span>
+                                <p style="font-size: 13px; color: #1e3a8a; margin: 8px 0 12px 0; line-height: 1.4;">{{ coll.description || 'No description' }}</p>
                                 <div style="font-size: 12px; color: #1e40af; font-weight: 600;">{{ coll.verses ? coll.verses.length : 0 }} verse{{ coll.verses && coll.verses.length !== 1 ? 's' : '' }}</div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Collection Modal -->
+            <div v-if="showCreateCollectionModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 1100;" @click.self="showCreateCollectionModal = false">
+                <div style="background: white; border-radius: 12px; padding: 32px; max-width: 460px; width: 92%; box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
+                    <h3 style="margin: 0 0 24px 0; font-size: 20px; font-weight: 700; color: #111827;">New Collection</h3>
+
+                    <!-- Name -->
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px;">Name <span style="color:#ef4444">*</span></label>
+                    <input
+                        v-model="createCollectionForm.name"
+                        type="text"
+                        placeholder="e.g. Psalms of Comfort"
+                        style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; box-sizing: border-box; margin-bottom: 16px;"
+                        @keyup.enter="submitCreateCollectionModal"
+                    />
+
+                    <!-- Description -->
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px;">Description <span style="color:#9ca3af">(optional)</span></label>
+                    <textarea
+                        v-model="createCollectionForm.description"
+                        placeholder="A short description of this collection…"
+                        rows="3"
+                        style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; box-sizing: border-box; resize: vertical; margin-bottom: 20px;"
+                    ></textarea>
+
+                    <!-- Visibility toggle -->
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding: 14px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+                        <label style="position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; cursor: pointer;">
+                            <input type="checkbox" v-model="createCollectionForm.is_public" style="opacity: 0; width: 0; height: 0; position: absolute;" />
+                            <span :style="{
+                                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                                background: createCollectionForm.is_public ? '#667eea' : '#d1d5db',
+                                borderRadius: '24px', transition: 'background 0.2s'
+                            }"></span>
+                            <span :style="{
+                                position: 'absolute', content: '', height: '18px', width: '18px',
+                                left: createCollectionForm.is_public ? '21px' : '3px', bottom: '3px',
+                                background: 'white', borderRadius: '50%', transition: 'left 0.2s',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                            }"></span>
+                        </label>
+                        <div>
+                            <div style="font-size: 14px; font-weight: 600; color: #111827;">
+                                {{ createCollectionForm.is_public ? '🌐 Public' : '🔒 Private' }}
+                            </div>
+                            <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
+                                {{ createCollectionForm.is_public ? 'Visible to everyone, your name shown as creator.' : 'Only visible to you.' }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pending verses note -->
+                    <div v-if="createCollectionPendingVerses.length > 0" style="font-size: 12px; color: #667eea; margin-bottom: 20px; font-weight: 600;">
+                        📖 {{ createCollectionPendingVerses.length }} selected verse{{ createCollectionPendingVerses.length !== 1 ? 's' : '' }} will be added.
+                    </div>
+
+                    <!-- Buttons -->
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button @click="showCreateCollectionModal = false" style="padding: 10px 18px; border: 1px solid #d1d5db; background: white; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; color: #374151;">
+                            Cancel
+                        </button>
+                        <button @click="submitCreateCollectionModal" style="padding: 10px 18px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Create Collection
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Collection Modal -->
+            <div v-if="showEditCollectionModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 1100;" @click.self="showEditCollectionModal = false">
+                <div style="background: white; border-radius: 12px; padding: 32px; max-width: 460px; width: 92%; box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
+                    <h3 style="margin: 0 0 24px 0; font-size: 20px; font-weight: 700; color: #111827;">Edit Collection</h3>
+
+                    <!-- Name -->
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px;">Name <span style="color:#ef4444">*</span></label>
+                    <input
+                        v-model="editCollectionForm.name"
+                        type="text"
+                        placeholder="Collection name"
+                        style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; box-sizing: border-box; margin-bottom: 16px;"
+                        @keyup.enter="submitEditCollection"
+                    />
+
+                    <!-- Description -->
+                    <label style="display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px;">Description <span style="color:#9ca3af">(optional)</span></label>
+                    <textarea
+                        v-model="editCollectionForm.description"
+                        placeholder="A short description…"
+                        rows="3"
+                        style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; box-sizing: border-box; resize: vertical; margin-bottom: 20px;"
+                    ></textarea>
+
+                    <!-- Visibility toggle -->
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 28px; padding: 14px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">
+                        <label style="position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; cursor: pointer;">
+                            <input type="checkbox" v-model="editCollectionForm.is_public" style="opacity: 0; width: 0; height: 0; position: absolute;" />
+                            <span :style="{
+                                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                                background: editCollectionForm.is_public ? '#667eea' : '#d1d5db',
+                                borderRadius: '24px', transition: 'background 0.2s'
+                            }"></span>
+                            <span :style="{
+                                position: 'absolute', content: '', height: '18px', width: '18px',
+                                left: editCollectionForm.is_public ? '21px' : '3px', bottom: '3px',
+                                background: 'white', borderRadius: '50%', transition: 'left 0.2s',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                            }"></span>
+                        </label>
+                        <div>
+                            <div style="font-size: 14px; font-weight: 600; color: #111827;">
+                                {{ editCollectionForm.is_public ? '🌐 Public' : '🔒 Private' }}
+                            </div>
+                            <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
+                                {{ editCollectionForm.is_public ? 'Visible to everyone, your name shown as creator.' : 'Only visible to you.' }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button @click="showEditCollectionModal = false" style="padding: 10px 18px; border: 1px solid #d1d5db; background: white; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; color: #374151;">
+                            Cancel
+                        </button>
+                        <button @click="submitEditCollection" style="padding: 10px 18px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Save Changes
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1457,6 +1617,7 @@
                                 </div>
                             </div>
                             <button 
+                                v-if="Number(allCollections.find(c => c.id === viewingCollectionId)?.user) === Number(authUser.id)"
                                 @click="removeVerseFromCollection(viewingCollectionId, verse.id)"
                                 style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; flex-shrink: 0; font-size: 16px; margin-left: 8px; opacity: 0.7; transition: opacity 0.2s;"
                                 @mouseover="$event.target.style.opacity = '1'"
@@ -1496,6 +1657,7 @@
                                     </div>
                                 </div>
                                 <button 
+                                    v-if="Number(allCollections.find(c => c.id === viewingCollectionId)?.user) === Number(authUser.id)"
                                     @click="addVerseToCollection(viewingCollectionId, rec.id)"
                                     style="background: #10b981; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; flex-shrink: 0; margin-left: 8px; font-size: 16px; transition: background 0.2s;"
                                     @mouseover="$event.target.style.background = '#059669'"
@@ -1738,9 +1900,13 @@
                     newCollection: {
                         name: '',
                         description: '',
-                        verses: [],
-                        themes: []
+                        verses: []
                     },
+                    showCreateCollectionModal: false,
+                    createCollectionForm: { name: '', description: '', is_public: false },
+                    createCollectionPendingVerses: [],
+                    showEditCollectionModal: false,
+                    editCollectionForm: { id: null, name: '', description: '', is_public: false },
                     selectedVerses: new Set(),
                     showCollectionsPanel: false,
                     viewingCollectionId: null,
@@ -1758,7 +1924,9 @@
                         isAuthenticated: false,
                         avatarUrl: '',
                         id: null,
-                    }
+                    },
+                    googleButtonReady: false,
+                    googleInitAttempts: 0,
                 };
             },
             computed: {
@@ -1768,9 +1936,10 @@
                     return this.collections;
                 },
                 publicCollections() {
-                    return this.collections.filter(c => !c.user);
+                    return this.collections.filter(c => c.is_public);
                 },
                 privateCollections() {
+                    // All collections owned by the current user (public OR private)
                     const currentUserId = Number(this.authUser.id);
                     return this.collections.filter(c => c.user && Number(c.user) === currentUserId);
                 },
@@ -1837,6 +2006,195 @@
                 getCsrfToken() {
                     const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
                     return match ? decodeURIComponent(match[1]) : '';
+                },
+                getAccessToken() {
+                    return localStorage.getItem('access_token') || '';
+                },
+                getRefreshToken() {
+                    return localStorage.getItem('refresh_token') || '';
+                },
+                getAvatarUrl() {
+                    return localStorage.getItem('avatar_url') || '';
+                },
+                setTokens(access, refresh) {
+                    if (access) localStorage.setItem('access_token', access);
+                    if (refresh) localStorage.setItem('refresh_token', refresh);
+                },
+                setAvatarUrl(url) {
+                    if (url) {
+                        localStorage.setItem('avatar_url', url);
+                    }
+                },
+                clearTokens() {
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('refresh_token');
+                    localStorage.removeItem('avatar_url');
+                },
+                getAuthHeaders(contentType = null) {
+                    const headers = {};
+                    if (contentType) {
+                        headers['Content-Type'] = contentType;
+                    }
+                    const access = this.getAccessToken();
+                    if (access) {
+                        headers['Authorization'] = `Bearer ${access}`;
+                    }
+                    return headers;
+                },
+                async refreshAccessToken() {
+                    const refresh = this.getRefreshToken();
+                    if (!refresh) return false;
+
+                    try {
+                        const res = await fetch(`${this.apiBase}/auth/token/refresh/`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ refresh })
+                        });
+
+                        if (!res.ok) {
+                            this.clearTokens();
+                            return false;
+                        }
+
+                        const data = await res.json();
+                        this.setTokens(data.access, data.refresh || refresh);
+                        return true;
+                    } catch (e) {
+                        console.error('Token refresh failed:', e);
+                        this.clearTokens();
+                        return false;
+                    }
+                },
+                async loadAuthStatus() {
+                    const access = this.getAccessToken();
+                    if (!access) {
+                        this.authUser = { isAuthenticated: false, avatarUrl: '', id: null };
+                        return;
+                    }
+
+                    try {
+                        let res = await fetch(`${this.apiBase}/auth/me/`, {
+                            headers: this.getAuthHeaders()
+                        });
+
+                        if (res.status === 401) {
+                            const refreshed = await this.refreshAccessToken();
+                            if (!refreshed) {
+                                this.authUser = { isAuthenticated: false, avatarUrl: '', id: null };
+                                return;
+                            }
+                            res = await fetch(`${this.apiBase}/auth/me/`, {
+                                headers: this.getAuthHeaders()
+                            });
+                        }
+
+                        if (!res.ok) {
+                            this.authUser = { isAuthenticated: false, avatarUrl: '', id: null };
+                            return;
+                        }
+
+                        const data = await res.json();
+                        this.authUser = {
+                            isAuthenticated: true,
+                            avatarUrl: this.getAvatarUrl(),
+                            id: data.id || null,
+                        };
+                    } catch (e) {
+                        console.error('Error loading auth status:', e);
+                        this.authUser = { isAuthenticated: false, avatarUrl: '', id: null };
+                    }
+                },
+                initializeGoogleIdentity() {
+                    if (!window.GOOGLE_CLIENT_ID) {
+                        console.warn('GOOGLE_CLIENT_ID is not configured.');
+                        return;
+                    }
+                    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+                        this.googleButtonReady = false;
+                        if (this.googleInitAttempts < 20) {
+                            this.googleInitAttempts += 1;
+                            window.setTimeout(() => this.initializeGoogleIdentity(), 300);
+                        }
+                        return;
+                    }
+
+                    window.google.accounts.id.initialize({
+                        client_id: window.GOOGLE_CLIENT_ID,
+                        callback: this.handleGoogleCredentialResponse,
+                        auto_select: false,
+                    });
+                    const buttonContainer = document.getElementById('google-signin-container');
+                    if (buttonContainer) {
+                        buttonContainer.innerHTML = '';
+                        window.google.accounts.id.renderButton(buttonContainer, {
+                            theme: 'outline',
+                            size: 'large',
+                            shape: 'pill',
+                            text: 'signin_with',
+                            logo_alignment: 'left',
+                            width: 240,
+                        });
+                        this.googleButtonReady = true;
+                    }
+                },
+                signInWithGoogle() {
+                    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+                        this.initializeGoogleIdentity();
+                        alert('Google Sign-In is still loading. Please try again in a second.');
+                        return;
+                    }
+                    window.google.accounts.id.prompt();
+                },
+                async handleGoogleCredentialResponse(response) {
+                    const googleIdToken = response?.credential;
+                    if (!googleIdToken) {
+                        alert('Google sign-in failed: missing credential token.');
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch(`${this.apiBase}/auth/google-token/`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ token: googleIdToken })
+                        });
+
+                        const data = await res.json();
+                        if (!res.ok) {
+                            alert(data.error || 'Google sign-in failed.');
+                            return;
+                        }
+
+                        this.setTokens(data.access, data.refresh);
+                        this.setAvatarUrl(data.picture || '');
+                        await this.loadAuthStatus();
+                        this.authUser.avatarUrl = data.picture || this.getAvatarUrl() || '';
+                        await this.loadCollections();
+                    } catch (e) {
+                        console.error('Google sign-in exchange failed:', e);
+                        alert('Google sign-in failed.');
+                    }
+                },
+                async signOut() {
+                    try {
+                        const refresh = this.getRefreshToken();
+                        if (refresh) {
+                            await fetch(`${this.apiBase}/auth/logout/`, {
+                                method: 'POST',
+                                headers: this.getAuthHeaders('application/json'),
+                                body: JSON.stringify({ refresh })
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Logout error:', e);
+                    } finally {
+                        this.clearTokens();
+                        this.authUser = { isAuthenticated: false, avatarUrl: '', id: null };
+                        this.googleButtonReady = false;
+                        await this.loadCollections();
+                        this.$nextTick(() => this.initializeGoogleIdentity());
+                    }
                 },
                 getTestament(book) { return OT_SET.has(book) ? 'Old Testament' : 'New Testament'; },
                 computeBookSimilarity() {
@@ -1996,21 +2354,6 @@
                         this.books = data.results || data;
                     } catch (e) {
                         console.error('Error loading books:', e);
-                    }
-                },
-                async loadAuthStatus() {
-                    try {
-                        const res = await fetch('/auth/status/', {
-                            credentials: 'same-origin'
-                        });
-                        const data = await res.json();
-                        this.authUser = {
-                            isAuthenticated: !!data.is_authenticated,
-                            avatarUrl: data.avatar_url || '',
-                            id: data.id || null,
-                        };
-                    } catch (e) {
-                        console.error('Error loading auth status:', e);
                     }
                 },
                 highlightText(text, query) {
@@ -2292,7 +2635,7 @@
                     try {
                         // Fetch the current collection to get existing verses
                         const getResponse = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
-                            credentials: 'same-origin'
+                            headers: this.getAuthHeaders()
                         });
                         const collection = await getResponse.json();
                         
@@ -2303,8 +2646,7 @@
                         
                         const response = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
                             method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
-                            credentials: 'same-origin',
+                            headers: { ...this.getAuthHeaders('application/json'), 'X-CSRFToken': this.getCsrfToken() },
                             body: JSON.stringify({
                                 verses: allVerseIds
                             })
@@ -2327,40 +2669,14 @@
                         alert('Please select some verses first');
                         return;
                     }
-                    
-                    const collectionName = prompt('Enter collection name:');
-                    if (!collectionName) return;
-                    
-                    try {
-                        const verseIdArray = Array.from(this.selectedVerses);
-                        const response = await fetch(`${this.apiBase}/collections/`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
-                            credentials: 'same-origin',
-                            body: JSON.stringify({
-                                name: collectionName,
-                                description: '',
-                                verses: verseIdArray,
-                                themes: []
-                            })
-                        });
-                        
-                        if (response.ok) {
-                            alert(`Created collection "${collectionName}" with ${verseIdArray.length} verse(s)!`);
-                            this.clearSelectedVerses();
-                            await this.loadCollections();
-                        } else {
-                            alert('Error creating collection');
-                        }
-                    } catch (e) {
-                        console.error('Error creating collection:', e);
-                        alert('Error creating collection');
-                    }
+                    this.createCollectionPendingVerses = Array.from(this.selectedVerses);
+                    this.createCollectionForm = { name: '', description: '', is_public: false };
+                    this.showCreateCollectionModal = true;
                 },
                 async loadCollections() {
                     try {
                         const res = await fetch(`${this.apiBase}/collections/`, {
-                            credentials: 'same-origin'
+                            headers: this.getAuthHeaders()
                         });
                         const data = await res.json();
                         this.collections = data.results || data || [];
@@ -2374,7 +2690,7 @@
                     this.collectionRecommendationsLoading = false;
                     try {
                         const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
-                            credentials: 'same-origin'
+                            headers: this.getAuthHeaders()
                         });
                         const data = await res.json();
                         this.viewingCollectionVerses = data.verses || [];
@@ -2404,43 +2720,53 @@
                     }
                 },
                 promptCreateCollection() {
-                    const name = prompt('Enter collection name:');
-                    if (!name) return;
-                    const description = prompt('Enter description (optional):') || '';
-                    
-                    this.createNewCollection(name, description);
+                    this.createCollectionPendingVerses = [];
+                    this.createCollectionForm = { name: '', description: '', is_public: false };
+                    this.showCreateCollectionModal = true;
                 },
-                async createNewCollection(name, description = '') {
+                async createNewCollection(name, description = '', isPublic = false, verses = []) {
                     try {
                         const response = await fetch(`${this.apiBase}/collections/`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
-                            credentials: 'same-origin',
+                            headers: { ...this.getAuthHeaders('application/json') },
                             body: JSON.stringify({
                                 name: name,
                                 description: description,
-                                verses: [],
-                                themes: []
+                                is_public: isPublic,
+                                verses: verses
                             })
                         });
                         
                         if (response.ok) {
-                            alert(`Collection "${name}" created!`);
                             this.clearSelectedVerses();
                             await this.loadCollections();
+                            return true;
                         } else {
-                            alert('Error creating collection');
+                            const err = await response.json().catch(() => ({}));
+                            console.error('Error creating collection:', err);
+                            return false;
                         }
                     } catch (e) {
                         console.error('Error creating collection:', e);
-                        alert('Error creating collection');
+                        return false;
+                    }
+                },
+                async submitCreateCollectionModal() {
+                    const { name, description, is_public } = this.createCollectionForm;
+                    if (!name.trim()) { alert('Please enter a collection name.'); return; }
+                    const ok = await this.createNewCollection(name.trim(), description.trim(), is_public, this.createCollectionPendingVerses);
+                    if (ok) {
+                        this.showCreateCollectionModal = false;
+                        this.createCollectionPendingVerses = [];
+                    } else {
+                        alert('Failed to create collection. Please try again.');
                     }
                 },
                 async addVerseToCollection(collectionId, verseId) {
                     try {
                         // Get current collection
                         const getRes = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
-                            credentials: 'same-origin'
+                            headers: this.getAuthHeaders()
                         });
                         const collection = await getRes.json();
                         
@@ -2451,8 +2777,7 @@
                         // Update collection
                         const updateRes = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
                             method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
-                            credentials: 'same-origin',
+                            headers: { ...this.getAuthHeaders('application/json'), 'X-CSRFToken': this.getCsrfToken() },
                             body: JSON.stringify({ verses: updatedVerseIds })
                         });
                         
@@ -2472,8 +2797,7 @@
                     try {
                         const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
                             method: 'DELETE',
-                            headers: { 'X-CSRFToken': this.getCsrfToken() },
-                            credentials: 'same-origin'
+                            headers: { ...this.getAuthHeaders(), 'X-CSRFToken': this.getCsrfToken() }
                         });
                         if (res.ok) {
                             await this.loadCollections();
@@ -2487,34 +2811,32 @@
                         alert('Error deleting collection: ' + e.message);
                     }
                 },
-                async editCollection(collectionId) {
-                    const collection = this.collections.find(c => c.id === collectionId);
-                    if (!collection) return;
-                    
-                    const name = prompt('Collection name:', collection.name);
-                    if (name === null) return;
-                    
-                    const description = prompt('Collection description:', collection.description || '');
-                    if (description === null) return;
-                    
+                openEditCollection(coll) {
+                    this.editCollectionForm = {
+                        id: coll.id,
+                        name: coll.name,
+                        description: coll.description || '',
+                        is_public: coll.is_public || false,
+                    };
+                    this.showEditCollectionModal = true;
+                },
+                async submitEditCollection() {
+                    const { id, name, description, is_public } = this.editCollectionForm;
+                    if (!name.trim()) { alert('Please enter a collection name.'); return; }
+                    const collection = this.collections.find(c => c.id === id);
+                    const verses = collection ? (collection.verses || []).map(v => v.id || v) : [];
                     try {
-                        const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
-                            body: JSON.stringify({
-                                name: name,
-                                description: description,
-                                verses: (collection.verses || []).map(v => v.id || v),
-                                themes: (collection.themes || [])
-                            }),
-                            credentials: 'same-origin'
+                        const res = await fetch(`${this.apiBase}/collections/${id}/`, {
+                            method: 'PATCH',
+                            headers: this.getAuthHeaders('application/json'),
+                            body: JSON.stringify({ name: name.trim(), description: description.trim(), is_public, verses }),
                         });
                         if (res.ok) {
-                            alert('Collection updated!');
+                            this.showEditCollectionModal = false;
                             await this.loadCollections();
                         } else {
-                            const errorData = await res.json().catch(() => ({}));
-                            console.error('Update error:', res.status, errorData);
+                            const err = await res.json().catch(() => ({}));
+                            console.error('Update error:', res.status, err);
                             alert(`Error updating collection: ${res.status}`);
                         }
                     } catch (e) {
@@ -2522,36 +2844,10 @@
                         alert('Error updating collection: ' + e.message);
                     }
                 },
-                async createNewCollectionPrompt() {
-                    const name = prompt('Collection name:');
-                    if (!name) return;
-                    
-                    const description = prompt('Collection description (optional):') || '';
-                    
-                    try {
-                        const res = await fetch(`${this.apiBase}/collections/`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
-                            body: JSON.stringify({
-                                name: name,
-                                description: description,
-                                verses: [],
-                                themes: []
-                            }),
-                            credentials: 'same-origin'
-                        });
-                        if (res.ok) {
-                            alert(`Created collection "${name}"!`);
-                            await this.loadCollections();
-                        } else {
-                            const errorData = await res.json().catch(() => ({}));
-                            console.error('Create error:', res.status, errorData);
-                            alert(`Error creating collection: ${res.status}`);
-                        }
-                    } catch (e) {
-                        console.error('Error creating collection:', e);
-                        alert('Error creating collection: ' + e.message);
-                    }
+                createNewCollectionPrompt() {
+                    this.createCollectionPendingVerses = [];
+                    this.createCollectionForm = { name: '', description: '', is_public: false };
+                    this.showCreateCollectionModal = true;
                 },
                 async removeVerseFromCollection(collectionId, verseId) {
                     const collection = this.collections.find(c => c.id === collectionId);
@@ -2564,14 +2860,12 @@
                     try {
                         const res = await fetch(`${this.apiBase}/collections/${collectionId}/`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.getCsrfToken() },
+                            headers: { ...this.getAuthHeaders('application/json'), 'X-CSRFToken': this.getCsrfToken() },
                             body: JSON.stringify({
                                 name: collection.name,
                                 description: collection.description,
-                                verses: remainingVerses,
-                                themes: (collection.themes || [])
+                                verses: remainingVerses
                             }),
-                            credentials: 'same-origin'
                         });
                         if (res.ok) {
                             await this.viewCollectionVerses(collectionId);
@@ -2588,6 +2882,7 @@
             async mounted() {
                 // Load auth status in background (doesn't block other content)
                 this.loadAuthStatus();
+                this.initializeGoogleIdentity();
                 
                 // Load page content in parallel
                 await Promise.all([

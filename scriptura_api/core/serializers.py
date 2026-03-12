@@ -109,20 +109,19 @@ class BookDetailSerializer(serializers.ModelSerializer):
 class CollectionSerializer(serializers.ModelSerializer):
     """Serializer for user-curated verse collections."""
     verse_count = serializers.SerializerMethodField()
-    theme_count = serializers.SerializerMethodField()
     verses = VerseSerializer(many=True, read_only=True)
-    themes = serializers.StringRelatedField(many=True, read_only=True)
     user = serializers.IntegerField(source='user_id', read_only=True)
+    created_by_username = serializers.SerializerMethodField()
 
     class Meta:
         model = Collection
-        fields = ['id', 'name', 'description', 'verses', 'themes', 'verse_count', 'theme_count', 'user', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'is_public', 'verses', 'verse_count', 'user', 'created_by_username', 'created_at', 'updated_at']
 
     def get_verse_count(self, obj):
         return obj.verses.count()
 
-    def get_theme_count(self, obj):
-        return obj.themes.count()
+    def get_created_by_username(self, obj):
+        return obj.user.username if obj.user else None
 
 
 class CollectionWriteSerializer(serializers.ModelSerializer):
@@ -132,41 +131,8 @@ class CollectionWriteSerializer(serializers.ModelSerializer):
         queryset=Verse.objects.all(),
         required=False
     )
-    themes = serializers.SerializerMethodField(read_only=False)
     user = serializers.IntegerField(source='user_id', read_only=True)
 
     class Meta:
         model = Collection
-        fields = ['id', 'name', 'description', 'verses', 'themes', 'user', 'created_at', 'updated_at']
-
-    def get_themes(self, obj):
-        return list(obj.themes.values_list('id', flat=True))
-    
-    def to_internal_value(self, data):
-        # Handle themes as a list of IDs
-        if 'themes' in data and isinstance(data['themes'], list):
-            theme_ids = data['themes']
-            # Keep themes in data as-is for now, we'll handle it in create/update
-            from themes.models import Theme
-            themes = Theme.objects.filter(id__in=theme_ids)
-            if len(themes) != len(set(theme_ids)):
-                self.fail('invalid', 'One or more theme IDs do not exist.')
-        return super().to_internal_value(data)
-    
-    def create(self, validated_data):
-        themes = self.initial_data.get('themes', [])
-        instance = super().create(validated_data)
-        if themes:
-            from themes.models import Theme
-            theme_ids = [t if isinstance(t, int) else t.id for t in themes]
-            instance.themes.set(Theme.objects.filter(id__in=theme_ids))
-        return instance
-    
-    def update(self, instance, validated_data):
-        themes = self.initial_data.get('themes')
-        instance = super().update(instance, validated_data)
-        if themes is not None:
-            from themes.models import Theme
-            theme_ids = [t if isinstance(t, int) else t.id for t in themes]
-            instance.themes.set(Theme.objects.filter(id__in=theme_ids))
-        return instance
+        fields = ['id', 'name', 'description', 'is_public', 'verses', 'user', 'created_at', 'updated_at']

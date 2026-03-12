@@ -79,13 +79,12 @@ class Collection(models.Model):
     )
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True, default='')
+    is_public = models.BooleanField(
+        default=False,
+        help_text='If true, this collection is visible to all users.'
+    )
     verses = models.ManyToManyField(
         Verse,
-        related_name='collections',
-        blank=True
-    )
-    themes = models.ManyToManyField(
-        'themes.Theme',
         related_name='collections',
         blank=True
     )

@@ -75,10 +75,10 @@ class FootnoteAdmin(admin.ModelAdmin):
 
 @admin.register(Collection)
 class CollectionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'user', 'is_public', 'verse_count', 'theme_count', 'created_at', 'updated_at']
+    list_display = ['id', 'name', 'user', 'is_public', 'verse_count', 'created_at', 'updated_at']
     list_filter = ['user', 'created_at', 'updated_at']
     search_fields = ['name', 'description', 'user__username', 'user__email']
-    filter_horizontal = ['verses', 'themes']
+    filter_horizontal = ['verses']
     readonly_fields = ['created_at', 'updated_at']
 
     def is_public(self, obj):
@@ -89,7 +89,3 @@ class CollectionAdmin(admin.ModelAdmin):
     def verse_count(self, obj):
         return obj.verses.count()
     verse_count.short_description = 'Verses'
-
-    def theme_count(self, obj):
-        return obj.themes.count()
-    theme_count.short_description = 'Themes'
