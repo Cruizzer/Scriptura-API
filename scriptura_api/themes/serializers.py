@@ -1,3 +1,5 @@
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from .models import Theme, ThemeKeyword
 
@@ -14,7 +16,8 @@ class ThemeSerializer(serializers.ModelSerializer):
         model = Theme
         fields = ['id', 'name', 'keywords', 'occurrences_endpoint']
 
-    def get_occurrences_endpoint(self, obj):
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_occurrences_endpoint(self, obj) -> str:
         return f"/api/analytics/themes/{obj.id}/"
     
     def create(self, validated_data):

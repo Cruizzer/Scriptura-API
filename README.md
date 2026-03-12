@@ -8,8 +8,8 @@ Scriptura API is a Django REST Framework application designed to serve biblical 
 
 - Full biblical text access (books, chapters, verses)
 - Precomputed text metrics (word count, entropy, lexical diversity)
-- User-defined thematic collections with keyword matching
-- Curated verse collections with multiple-relationship management
+- User-defined themes with keyword matching
+- Curated verse collections with public/private visibility
 - Advanced NLP-based lexical similarity analysis and verse recommendations
 
 ## Setup Instructions
@@ -80,6 +80,11 @@ The project follows Django REST Framework best practices with clear separation o
 
 ## API Documentation
 
+This repository includes API documentation in both static and interactive forms:
+
+- **API Documentation (PDF):** [Scriptura API.pdf](Scriptura%20API.pdf)
+- **Endpoint Reference (Markdown):** [API_ENDPOINTS.md](API_ENDPOINTS.md)
+
 ### Interactive Documentation
 
 Access the interactive API documentation at:
@@ -91,16 +96,16 @@ Access the interactive API documentation at:
 #### Biblical Text Access
 - `GET /api/books/` - List books (filter by testament, search by name)
 - `GET /api/chapters/` - List chapters (filter by book, number)
-- `GET /api/verses/` - List verses (filter by book/chapter/keywords; full-text search)
+- `GET /api/verses/` - List verses (filter by book/chapter/text; full-text search)
 
 #### Themes
 - `GET /api/themes/` - List themes
 - `POST /api/themes/` - Create theme with keywords
-- `GET /api/themes/{id}/coverage/` - Analytics for theme across books
+- `GET /api/analytics/themes/{id}/` - Analytics for theme across books
 
 #### Collections
 - `GET /api/collections/` - List verse collections
-- `POST /api/collections/` - Create collection (many-to-many verses and themes)
+- `POST /api/collections/` - Create collection with visibility and verse associations
 - `PUT /api/collections/{id}/` - Update collection
 - `DELETE /api/collections/{id}/` - Delete collection
 
@@ -112,9 +117,9 @@ Access the interactive API documentation at:
 ## Key Features
 
 ### Collections CRUD System
-User-created collections link verses and themes for organized biblical study. Includes:
+User-created collections group verses for organized biblical study. Includes:
 - Full Create-Read-Update-Delete operations
-- Many-to-many relationships with verses and themes
+- User ownership and public/private visibility controls
 - Full-text search on name and description
 - Automatic timestamp tracking
 
@@ -122,7 +127,7 @@ User-created collections link verses and themes for organized biblical study. In
 Advanced NLP analytics computing vocabulary and thematic relationships:
 - Multiple similarity metrics (cosine, Jaccard)
 - Configurable threshold filtering
-- Graph format for visualization (nodes and edges)
+- Graph-oriented output using weighted edges and summary metrics
 - Smart verse recommendation engine
 - Efficient vector-based text analysis
 
@@ -134,7 +139,15 @@ Run the test suite with:
 python manage.py test
 ```
 
-All tests pass with no errors or warnings.
+All automated tests currently pass.
+
+For a lightweight end-to-end smoke test of the main API routes, run:
+
+```bash
+python test_api.py
+```
+
+This script bootstraps Django locally and checks key endpoints such as docs/schema, books, collections, summaries, and recommendation APIs.
 
 ## Example Usage
 
@@ -146,8 +159,8 @@ curl -X POST http://localhost:8000/api/collections/ \
   -d '{
     "name": "Hope and Redemption",
     "description": "Key passages on redemption",
-    "verses": [1, 2, 3],
-    "themes": [1, 2]
+    "is_public": false,
+    "verses": [1, 2, 3]
   }'
 ```
 
@@ -172,7 +185,7 @@ scriptura_api/
   ingestion/         # Data loading and processing
   templates/         # Frontend templates
   manage.py          # Django management script
-  db.sqlite3         # Database
+  db.sqlite3         # Created locally after running migrations
 ```
 
 ## Version Control

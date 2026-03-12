@@ -1,3 +1,5 @@
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from .models import Book, Chapter, Verse, Section, Footnote, Collection
 
@@ -33,7 +35,8 @@ class VerseSerializer(serializers.ModelSerializer):
             'footnotes',
         ]
 
-    def get_section_title(self, obj):
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_section_title(self, obj) -> str:
         section_map = self.context.get('section_map', {})
         if section_map:
             return section_map.get(obj.number)
@@ -61,7 +64,8 @@ class ChapterListSerializer(serializers.ModelSerializer):
         model = Chapter
         fields = ['id', 'book_name', 'chapter_number', 'verse_count']
 
-    def get_verse_count(self, obj):
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_verse_count(self, obj) -> int:
         return obj.verses.count()
 
 
@@ -76,6 +80,7 @@ class ChapterSerializer(serializers.ModelSerializer):
         model = Chapter
         fields = ['id', 'book_name', 'chapter_number', 'sections', 'verses']
 
+    @extend_schema_field(VerseSerializer(many=True))
     def get_verses(self, obj):
         section_map = {s.start_verse: s.title for s in obj.sections.all()}
         verses = obj.verses.all().order_by('number')
@@ -93,7 +98,8 @@ class BookSerializer(serializers.ModelSerializer):
         model = Book
         fields = ['id', 'name', 'testament', 'chapter_count']
 
-    def get_chapter_count(self, obj):
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_chapter_count(self, obj) -> int:
         return obj.chapters.count()
 
 
@@ -117,10 +123,12 @@ class CollectionSerializer(serializers.ModelSerializer):
         model = Collection
         fields = ['id', 'name', 'description', 'is_public', 'verses', 'verse_count', 'user', 'created_by_username', 'created_at', 'updated_at']
 
-    def get_verse_count(self, obj):
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_verse_count(self, obj) -> int:
         return obj.verses.count()
 
-    def get_created_by_username(self, obj):
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_created_by_username(self, obj) -> str:
         return obj.user.username if obj.user else None
 
 
