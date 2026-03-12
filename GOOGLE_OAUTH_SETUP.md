@@ -1,60 +1,81 @@
 # Google OAuth Setup Instructions
 
-## Step 1: Add Your Credentials
+This project now uses:
 
-Edit `scriptura_api/scriptura_api/settings.py` and add your Google OAuth credentials:
+- Google Identity Services in the browser to get a Google `id_token`
+- `POST /api/auth/google-token/` to exchange that Google token for this API's JWT tokens
+- JWT bearer auth for protected API routes
 
-```python
-SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'APP': {
-            'client_id': 'YOUR_CLIENT_ID_HERE',
-            'secret': 'YOUR_CLIENT_SECRET_HERE',
-            'key': ''
-        }
-    }
-}
+It no longer uses the old `django-allauth` redirect flow.
+
+## Step 1: Add credentials to `.env`
+
+Set these values:
+
+```dotenv
+GOOGLE_CLIENT_ID=your_google_web_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
 
-## Step 2: Configure Google Cloud Console
+The frontend only needs `GOOGLE_CLIENT_ID`, but keeping the secret in `.env` is fine for future server-side Google integrations.
+
+## Step 2: Use a **Web application** OAuth client in Google Cloud
+
+In Google Cloud Console:
 
 1. Go to https://console.cloud.google.com/
-2. Select your project (or create a new one)
-3. Navigate to **APIs & Services** > **Credentials**
-4. Under **Authorized redirect URIs**, add:
-   ```
-   http://localhost:8000/accounts/google/login/callback/
-   http://127.0.0.1:8000/accounts/google/login/callback/
-   ```
+2. Open **APIs & Services** > **Credentials**
+3. Create or edit an OAuth 2.0 Client ID
+4. Make sure the client type is **Web application**
 
-## Step 3: Add Social App in Django Admin
+If you use a Desktop/Android/iOS client here, browser sign-in will fail.
 
-1. Run the server: `python manage.py runserver`
-2. Go to http://localhost:8000/admin/
-3. Create a superuser if you haven't: `python manage.py createsuperuser`
-4. Log in to admin
-5. Go to **Sites** and make sure you have a site (should be `example.com` by default, ID=1)
-6. Go to **Social applications** > **Add social application**
-   - Provider: Google
-   - Name: Google OAuth
-   - Client ID: (paste your Client ID)
-   - Secret key: (paste your Secret)
-   - Sites: Select "example.com" (or your site)
-   - Save
+## Step 3: Add **Authorized JavaScript origins**
 
-## Step 4: Test
+Because this app now signs in directly from the browser, you must register the exact browser origin(s):
 
-1. Go to http://localhost:8000/
-2. Click "Sign in with Google"
-3. You should be redirected to Google's OAuth consent screen
-4. After authorization, you'll be redirected back to your app
+```text
+http://127.0.0.1:8000
+http://localhost:8000
+```
 
-## Step 5: Update Collection Model (Optional)
+If you access the site on a different port or hostname, add that exact origin too.
 
-To tie collections to specific users, you'll need to add a user ForeignKey to the Collection model and run migrations.
+## Step 4: Redirect URIs are not the main setting anymore
+
+For the current flow, the key setting is **Authorized JavaScript origins**, not the old allauth callback URLs.
+
+You can leave redirect URIs empty unless you later add a server-side redirect-based Google OAuth flow.
+
+## Step 5: Test the flow
+
+1. Start the app with `python manage.py runserver`
+2. Open `http://127.0.0.1:8000/`
+3. Click **Sign in with Google**
+4. Google returns an `id_token` to the frontend
+5. The frontend sends it to `POST /api/auth/google-token/`
+6. The API returns:
+     - `access`
+     - `refresh`
+7. The frontend stores those JWTs and uses them on protected API requests
 
 ## Troubleshooting
 
-- **"Redirect URI mismatch"**: Make sure the redirect URI in Google Cloud Console matches exactly
-- **"Site matching query does not exist"**: Make sure SITE_ID=1 in settings and you have a Site with ID=1 in Django admin
-- **CSRF errors**: Make sure you're accessing via the same domain (don't mix localhost and 127.0.0.1)
+- **"Access blocked: Authorization Error / no registered origin / invalid_client"**
+    - Your Google Cloud OAuth client is missing the current browser origin.
+    - Add both:
+        - `http://127.0.0.1:8000`
+        - `http://localhost:8000`
+    - Then wait a minute and retry.
+
+- **Button appears but sign-in fails immediately**
+    - Confirm `GOOGLE_CLIENT_ID` in `.env` matches the exact Web OAuth client in Google Cloud.
+
+- **Works on localhost but not 127.0.0.1**
+    - Google treats these as different origins. Register both.
+
+- **Still getting `invalid_client`**
+    - Verify you are using a Web OAuth client, not another client type.
+
+- **JWT requests fail after login**
+    - Check that the frontend received tokens from `/api/auth/google-token/` and is sending `Authorization: Bearer <access>`.

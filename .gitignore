@@ -1,6 +1,7 @@
 
 # Custom additions:
 test_api.py
+*.tex*
 
 venv/
 __pycache__/
