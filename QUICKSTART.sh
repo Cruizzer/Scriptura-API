@@ -1,6 +1,10 @@
 #!/bin/bash
 # Quick Start Guide for New Features
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR/scriptura_api"
+VENV_ACTIVATE="$SCRIPT_DIR/venv/bin/activate"
+
 echo "=========================================="
 echo "Scriptura API - New Features Quick Start"
 echo "=========================================="
@@ -8,8 +12,14 @@ echo ""
 
 # Activate virtual environment
 echo "1. Activating virtual environment..."
-source /uolstore/home/student_lnxhome01/sc22hd/Desktop/Scriptura-API/venv/bin/activate
-cd /uolstore/home/student_lnxhome01/sc22hd/Desktop/Scriptura-API/scriptura_api
+if [ -f "$VENV_ACTIVATE" ]; then
+	# shellcheck disable=SC1090
+	source "$VENV_ACTIVATE"
+else
+	echo "   Warning: virtual environment not found at $VENV_ACTIVATE"
+fi
+
+cd "$PROJECT_DIR" || exit 1
 
 # Run migrations (if not already done)
 echo "2. Applying migrations..."

@@ -24,7 +24,8 @@ Scriptura API is a Django REST Framework application designed to serve biblical 
 1. **Clone the repository and navigate to the project:**
 
 ```bash
-cd /uolstore/home/student_lnxhome01/sc22hd/Desktop/Scriptura-API
+git clone <your-repo-url>
+cd Scriptura-API
 ```
 
 2. **Create and activate a virtual environment:**
