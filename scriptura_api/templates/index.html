@@ -31,6 +31,10 @@
             padding: 24px;
         }
 
+        [v-cloak] {
+            display: none;
+        }
+
         .navbar {
             background: rgba(255, 255, 255, 0.94);
             backdrop-filter: blur(6px);
@@ -872,7 +876,7 @@
     </style>
 </head>
 <body>
-    <div id="app">
+    <div id="app" v-cloak>
         {% verbatim %}
         <div class="navbar">
             <h1>Scriptura</h1>
