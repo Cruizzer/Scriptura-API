@@ -1,0 +1,10 @@
+{% extends "account/base.html" %}
+{% load i18n %}
+
+{% block head_title %}{% trans "Sign In" %}{% endblock %}
+
+{% block content %}
+<script>
+    window.location.replace("{% provider_login_url 'google' %}");
+</script>
+{% endblock %}

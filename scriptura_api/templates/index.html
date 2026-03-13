@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scriptura - Bible Analytics</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        window.GOOGLE_CLIENT_ID = "{{ google_client_id|escapejs }}";
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Crimson+Text:wght@400;600;700&display=swap');
 
@@ -72,6 +76,40 @@
             background: #111827;
             color: #f9fafb;
             border-color: #111827;
+        }
+
+        .auth-links {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .auth-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #111827;
+            color: #fff;
+            border: 1px solid #111827;
+            border-radius: 999px;
+            padding: 9px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .auth-btn:hover {
+            background: #000;
+        }
+
+        .auth-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #e5e7eb;
+            background: #f3f4f6;
         }
 
         .container {
@@ -477,6 +515,15 @@
                     Analytics
                 </button>
             </div>
+            <div class="auth-links">
+                <button v-if="!authUser.isAuthenticated" @click="signInWithGoogle" class="auth-btn" type="button">
+                    Sign in with Google
+                </button>
+                <template v-else>
+                    <img v-if="authUser.avatarUrl" :src="authUser.avatarUrl" alt="Profile" class="auth-avatar">
+                    <button @click="signOut" class="auth-btn" type="button">Sign out</button>
+                </template>
+            </div>
         </div>
 
         <div class="container">
@@ -735,10 +782,16 @@
                     bookSummaries: [],
                     newTheme: { name: '', keywords: '' },
                     themeMessage: null,
-                    apiBase: 'http://127.0.0.1:8000/api',
+                    apiBase: '/api',
                     searchDebounceTimer: null,
                     selectedThemeForCoverage: null,
-                    themeCoverage: null
+                    themeCoverage: null,
+                    googleInitAttempts: 0,
+                    authUser: {
+                        isAuthenticated: false,
+                        avatarUrl: '',
+                        id: null,
+                    }
                 };
             },
             computed: {
@@ -759,6 +812,173 @@
                 }
             },
             methods: {
+                getAccessToken() {
+                    return localStorage.getItem('access_token') || '';
+                },
+                getRefreshToken() {
+                    return localStorage.getItem('refresh_token') || '';
+                },
+                setTokens(access, refresh) {
+                    if (access) localStorage.setItem('access_token', access);
+                    if (refresh) localStorage.setItem('refresh_token', refresh);
+                },
+                clearTokens() {
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('refresh_token');
+                    localStorage.removeItem('avatar_url');
+                },
+                getAvatarUrl() {
+                    return localStorage.getItem('avatar_url') || '';
+                },
+                setAvatarUrl(url) {
+                    if (url) {
+                        localStorage.setItem('avatar_url', url);
+                    }
+                },
+                getAuthHeaders(contentType = null) {
+                    const headers = {};
+                    if (contentType) headers['Content-Type'] = contentType;
+                    const access = this.getAccessToken();
+                    if (access) headers['Authorization'] = `Bearer ${access}`;
+                    return headers;
+                },
+                async refreshAccessToken() {
+                    const refresh = this.getRefreshToken();
+                    if (!refresh) return false;
+
+                    try {
+                        const res = await fetch(`${this.apiBase}/auth/token/refresh/`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ refresh })
+                        });
+
+                        if (!res.ok) {
+                            this.clearTokens();
+                            return false;
+                        }
+
+                        const data = await res.json();
+                        this.setTokens(data.access, data.refresh || refresh);
+                        return true;
+                    } catch (e) {
+                        console.error('Token refresh failed:', e);
+                        this.clearTokens();
+                        return false;
+                    }
+                },
+                async loadAuthStatus() {
+                    const access = this.getAccessToken();
+                    if (!access) {
+                        this.authUser = { isAuthenticated: false, avatarUrl: '', id: null };
+                        return;
+                    }
+
+                    try {
+                        let res = await fetch(`${this.apiBase}/auth/me/`, {
+                            headers: this.getAuthHeaders()
+                        });
+
+                        if (res.status === 401) {
+                            const refreshed = await this.refreshAccessToken();
+                            if (!refreshed) {
+                                this.authUser = { isAuthenticated: false, avatarUrl: '', id: null };
+                                return;
+                            }
+                            res = await fetch(`${this.apiBase}/auth/me/`, {
+                                headers: this.getAuthHeaders()
+                            });
+                        }
+
+                        if (!res.ok) {
+                            this.authUser = { isAuthenticated: false, avatarUrl: '', id: null };
+                            return;
+                        }
+
+                        const data = await res.json();
+                        this.authUser = {
+                            isAuthenticated: true,
+                            avatarUrl: this.getAvatarUrl(),
+                            id: data.id || null,
+                        };
+                    } catch (e) {
+                        console.error('Error loading auth status:', e);
+                        this.authUser = { isAuthenticated: false, avatarUrl: '', id: null };
+                    }
+                },
+                initializeGoogleIdentity() {
+                    if (!window.GOOGLE_CLIENT_ID) return;
+                    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+                        if (this.googleInitAttempts < 20) {
+                            this.googleInitAttempts += 1;
+                            window.setTimeout(() => this.initializeGoogleIdentity(), 300);
+                        }
+                        return;
+                    }
+
+                    window.google.accounts.id.initialize({
+                        client_id: window.GOOGLE_CLIENT_ID,
+                        callback: (response) => this.handleGoogleCredentialResponse(response),
+                        auto_select: false,
+                    });
+                },
+                signInWithGoogle() {
+                    if (!window.GOOGLE_CLIENT_ID) {
+                        alert('Google sign-in is not configured on this deployment.');
+                        return;
+                    }
+                    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+                        alert('Google sign-in is still loading. Please try again in a second.');
+                        return;
+                    }
+                    window.google.accounts.id.prompt();
+                },
+                async handleGoogleCredentialResponse(response) {
+                    const googleIdToken = response?.credential;
+                    if (!googleIdToken) {
+                        alert('Google sign-in failed: missing credential token.');
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch(`${this.apiBase}/auth/google-token/`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ token: googleIdToken })
+                        });
+
+                        const data = await res.json();
+                        if (!res.ok) {
+                            alert(data.error || 'Google sign-in failed.');
+                            return;
+                        }
+
+                        this.setTokens(data.access, data.refresh);
+                        this.setAvatarUrl(data.picture || '');
+                        await this.loadAuthStatus();
+                        this.authUser.avatarUrl = data.picture || this.getAvatarUrl() || '';
+                    } catch (e) {
+                        console.error('Google sign-in exchange failed:', e);
+                        alert('Google sign-in failed.');
+                    }
+                },
+                async signOut() {
+                    try {
+                        const refresh = this.getRefreshToken();
+                        if (refresh) {
+                            await fetch(`${this.apiBase}/auth/logout/`, {
+                                method: 'POST',
+                                headers: this.getAuthHeaders('application/json'),
+                                body: JSON.stringify({ refresh })
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Logout error:', e);
+                    } finally {
+                        this.clearTokens();
+                        this.authUser = { isAuthenticated: false, avatarUrl: '', id: null };
+                    }
+                },
                 async loadBooks() {
                     try {
                         const res = await fetch(`${this.apiBase}/books/?limit=100`);
@@ -963,6 +1183,8 @@
                 }
             },
             async mounted() {
+                this.initializeGoogleIdentity();
+                await this.loadAuthStatus();
                 await this.loadBooks();
                 this.loadThemes();
                 this.loadBookSummaries();
