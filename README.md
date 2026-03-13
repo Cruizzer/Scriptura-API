@@ -1,5 +1,7 @@
 # Scriptura API
 
+[![Unit Tests](https://github.com/Cruizzer/Scriptura-API/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/Cruizzer/Scriptura-API/actions/workflows/unit-tests.yml)
+
 A RESTful API for analyzing the Douay-Rheims 1899 American Edition (DRA) translation. Provides hierarchical access to books, chapters, and verses with advanced text analytics, thematic analysis, and lexical similarity computations.
 
 ## Overview
