@@ -59,6 +59,28 @@
             color: #111827;
         }
 
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 10px;
+        }
+
+        .menu-toggle {
+            display: none;
+            width: 38px;
+            height: 38px;
+            border: 1px solid #d1d5db;
+            border-radius: 9px;
+            background: #ffffff;
+            color: #111827;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+
         .nav-links {
             display: flex;
             gap: 20px;
@@ -818,6 +840,10 @@
         }
 
         @media (max-width: 900px) {
+            #app {
+                padding: 14px;
+            }
+
             .theme-container {
                 grid-template-columns: 1fr;
             }
@@ -837,10 +863,7 @@
             }
 
             .navbar {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 12px;
-                display: flex;
+                padding: 14px 16px;
             }
 
             .nav-links,
@@ -848,8 +871,122 @@
                 justify-self: auto;
             }
 
+            .search-container,
+            .chapter-viewer,
+            .theme-list,
+            .theme-form,
+            .analytics-card {
+                padding: 22px;
+            }
+
             .collection-grid {
                 grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #app {
+                padding: 8px;
+            }
+
+            .navbar {
+                top: 6px;
+                border-radius: 12px;
+                grid-template-columns: 1fr;
+                margin-bottom: 14px;
+                gap: 8px;
+            }
+
+            .nav-brand {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .navbar h1 {
+                font-size: 21px;
+            }
+
+            .menu-toggle {
+                display: inline-flex;
+            }
+
+            .nav-links,
+            .auth-links {
+                display: none;
+                width: 100%;
+                justify-self: stretch;
+            }
+
+            .nav-links.open,
+            .auth-links.open {
+                display: flex;
+            }
+
+            .nav-links.open {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                margin-top: 2px;
+            }
+
+            .nav-links button {
+                width: 100%;
+                text-align: left;
+                padding: 10px 12px;
+            }
+
+            .auth-links.open {
+                justify-content: flex-start;
+            }
+
+            .google-signin-btn,
+            .google-signin-btn > div {
+                width: 100%;
+                min-width: 0;
+            }
+
+            .search-container,
+            .chapter-viewer,
+            .theme-list,
+            .theme-form,
+            .analytics-card {
+                padding: 14px;
+            }
+
+            .chapter-header h2 {
+                font-size: 28px;
+            }
+
+            .verses {
+                padding: 10px;
+                line-height: 1.55;
+                font-size: 19px;
+                text-align: left;
+            }
+
+            .verse-text {
+                font-size: 19px;
+            }
+
+            .verse.first-verse .verse-number {
+                top: 28px;
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .verses {
+                padding: 8px;
+                font-size: 18px;
+                line-height: 1.5;
+            }
+
+            .verse-text {
+                font-size: 18px;
+            }
+
+            .chapter-header h2 {
+                font-size: 24px;
             }
         }
     </style>
@@ -857,29 +994,38 @@
 <body>
     <div id="app" v-cloak>
         {% verbatim %}
-        <div class="navbar">
-            <h1>Scriptura</h1>
-            <div class="nav-links">
+        <div class="navbar" :class="{ 'menu-open': navMenuOpen }">
+            <div class="nav-brand">
+                <h1>Scriptura</h1>
+                <button
+                    class="menu-toggle"
+                    type="button"
+                    @click="toggleNavMenu"
+                    :aria-expanded="navMenuOpen ? 'true' : 'false'"
+                    aria-label="Toggle navigation"
+                >☰</button>
+            </div>
+            <div class="nav-links" :class="{ open: navMenuOpen }">
                 <button 
-                    @click="currentPage = 'search'"
+                    @click="setCurrentPage('search')"
                     :class="{ active: currentPage === 'search' }"
                 >
                     Search
                 </button>
                 <button 
-                    @click="currentPage = 'chapters'"
+                    @click="setCurrentPage('chapters')"
                     :class="{ active: currentPage === 'chapters' }"
                 >
                     Browse
                 </button>
                 <button 
-                    @click="currentPage = 'themes'"
+                    @click="setCurrentPage('themes')"
                     :class="{ active: currentPage === 'themes' }"
                 >
                     Themes
                 </button>
                 <button 
-                    @click="currentPage = 'collections'"
+                    @click="setCurrentPage('collections')"
                     :class="{ active: currentPage === 'collections' }"
                 >
                     Collections
@@ -892,7 +1038,7 @@
                     Analytics
                 </button>
             </div>
-            <div class="auth-links" :style="{ visibility: (authUser.isAuthenticated || authCheckCompleted) ? 'visible' : 'hidden' }">
+            <div class="auth-links" :class="{ open: navMenuOpen }" :style="{ visibility: (authUser.isAuthenticated || authCheckCompleted) ? 'visible' : 'hidden' }">
                 <div v-if="!authUser.isAuthenticated" class="google-signin-wrap">
                     <div id="google-signin-container" class="google-signin-btn" :style="{ display: googleButtonReady ? 'inline-flex' : 'none' }"></div>
                 </div>
@@ -1916,6 +2062,7 @@
                     authCheckCompleted: false,
                     googleButtonReady: false,
                     googleInitAttempts: 0,
+                    navMenuOpen: false,
                 };
             },
             computed: {
@@ -1962,6 +2109,18 @@
                 }
             },
             methods: {
+                setCurrentPage(page) {
+                    this.currentPage = page;
+                    this.navMenuOpen = false;
+                },
+                toggleNavMenu() {
+                    this.navMenuOpen = !this.navMenuOpen;
+                },
+                handleWindowResize() {
+                    if (window.innerWidth > 768) {
+                        this.navMenuOpen = false;
+                    }
+                },
                 formatFootnoteMarker(marker, index = null) {
                     if (marker && /^DR\d*$/i.test(marker)) {
                         return index === null ? 'Note' : `Note ${index + 1}`;
@@ -2608,6 +2767,7 @@
                 },
                 openAnalyticsPage() {
                     this.currentPage = 'analytics';
+                    this.navMenuOpen = false;
                     this.$nextTick(() => this.initializeVisNetwork());
                 },
                 toggleVerseSelection(verseId) {
@@ -2876,6 +3036,8 @@
                 },
             },
             async mounted() {
+                window.addEventListener('resize', this.handleWindowResize);
+
                 // Load auth status in background (doesn't block other content)
                 this.loadAuthStatus();
                 this.initializeGoogleIdentity();
@@ -2906,6 +3068,9 @@
                 if (this.currentPage === 'analytics') {
                     this.$nextTick(() => this.initializeVisNetwork());
                 }
+            },
+            beforeUnmount() {
+                window.removeEventListener('resize', this.handleWindowResize);
             }
         }).mount('#app');
     </script>
