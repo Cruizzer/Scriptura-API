@@ -184,10 +184,11 @@ class LexicalSimilarityGraphView(APIView):
         # separate cache row from 0.3.
         threshold = round(threshold, 2)
 
-        books = Book.objects.prefetch_related('chapters__verses').all()
+        # Fast cache key check: only book IDs are needed for the hash.
+        books_for_hash = Book.objects.only('id')
 
         # ── Cache check ──────────────────────────────────────────────────
-        book_hash = SimilarityAnalyticsService.book_set_hash(books)
+        book_hash = SimilarityAnalyticsService.book_set_hash(books_for_hash)
         try:
             cached = SimilarityCache.objects.get(
                 book_set_hash=book_hash,
@@ -196,6 +197,7 @@ class LexicalSimilarityGraphView(APIView):
             )
             graph_data = cached.graph_data
         except SimilarityCache.DoesNotExist:
+            books = Book.objects.prefetch_related('chapters__verses').all()
             # ── Compute ──────────────────────────────────────────────────
             graph_data = SimilarityAnalyticsService.build_similarity_graph(
                 books,
@@ -211,7 +213,7 @@ class LexicalSimilarityGraphView(APIView):
             )
 
         # ── Summary stats (computed on every request, not stored in cache) ──
-        book_count = books.count()
+        book_count = books_for_hash.count()
         edge_count = len(graph_data['edges'])
         max_possible_edges = book_count * (book_count - 1) // 2
 
@@ -235,7 +237,15 @@ class LexicalSimilarityGraphView(APIView):
             ],
         }
 
-        return Response({"summary": summary, **graph_data})
+        response = Response({"summary": summary, **graph_data})
+
+        # Cache aggressively at browser + CDN for the default graph URL.
+        if metric == 'tfidf_cosine' and threshold == 0.3:
+            response['Cache-Control'] = 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800, immutable'
+        else:
+            response['Cache-Control'] = 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
+
+        return response
 
 
 class VerseRecommendationView(APIView):
