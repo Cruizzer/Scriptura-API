@@ -10,14 +10,14 @@ from drf_spectacular.utils import inline_serializer
 from rest_framework import serializers as drf_serializers
 
 from django_filters import rest_framework as django_filters
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.contrib.auth.models import User
 from django.conf import settings
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Verse, Collection
+from .models import Verse, Collection, Section
 from .permissions import IsCollectionOwnerOrReadOnly
 from .serializers import (
     BookSerializer,
@@ -300,7 +300,13 @@ class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         qs = repositories.ChapterRepository.all()
         if self.action == 'retrieve':
-            return qs.prefetch_related('sections', 'verses__footnotes')
+            return qs.prefetch_related(
+                Prefetch('sections', queryset=Section.objects.order_by('start_verse', 'id')),
+                Prefetch(
+                    'verses',
+                    queryset=Verse.objects.order_by('number').prefetch_related('footnotes')
+                ),
+            )
         return qs
 
     def get_serializer_class(self):

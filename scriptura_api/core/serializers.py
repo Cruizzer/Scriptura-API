@@ -83,7 +83,7 @@ class ChapterSerializer(serializers.ModelSerializer):
     @extend_schema_field(VerseSerializer(many=True))
     def get_verses(self, obj):
         section_map = {s.start_verse: s.title for s in obj.sections.all()}
-        verses = obj.verses.all().order_by('number')
+        verses = obj.verses.all()
         return VerseSerializer(
             verses,
             many=True,
