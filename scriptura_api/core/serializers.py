@@ -100,7 +100,7 @@ class BookSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_chapter_count(self, obj) -> int:
-        return obj.chapters.count()
+        return getattr(obj, 'chapter_count', obj.chapters.count())
 
 
 class BookDetailSerializer(serializers.ModelSerializer):

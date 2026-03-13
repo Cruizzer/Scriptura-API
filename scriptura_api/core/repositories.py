@@ -1,16 +1,18 @@
 """Simple repository layer isolating ORM queries for core models."""
 
+from django.db.models import Count
+
 from .models import Book, Chapter, Verse
 
 
 class BookRepository:
     @staticmethod
     def all():
-        return Book.objects.all()
+        return Book.objects.annotate(chapter_count=Count('chapters')).all()
 
     @staticmethod
     def by_testament(testament: str):
-        return Book.objects.filter(testament__iexact=testament)
+        return Book.objects.filter(testament__iexact=testament).annotate(chapter_count=Count('chapters'))
 
     @staticmethod
     def get(pk):
