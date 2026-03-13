@@ -10,6 +10,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: ci-test-secret-key
+      DEBUG: "False"
 
     steps:
       - name: Check out repository
