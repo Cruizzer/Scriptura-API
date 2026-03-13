@@ -16,7 +16,9 @@ class PublicApiCacheHeadersMiddleware:
 
         if request.method == 'GET' and response.status_code == 200:
             if any(request.path.startswith(prefix) for prefix in self.CACHED_PREFIXES):
-                # Shared cache (CDN): 5 min fresh, 10 min stale-while-revalidate.
-                response['Cache-Control'] = 'public, s-maxage=300, stale-while-revalidate=600'
+                content_type = (response.get('Content-Type') or '').lower()
+                if 'application/json' in content_type:
+                    # Shared cache (CDN): 5 min fresh, 10 min stale-while-revalidate.
+                    response['Cache-Control'] = 'public, s-maxage=300, stale-while-revalidate=600'
 
         return response
