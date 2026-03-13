@@ -13,10 +13,6 @@ class FrontendView(TemplateView):
         return context
 
 
-class GoogleSigninView(TemplateView):
-    template_name = 'socialaccount/login.html'
-
-
 @require_http_methods(["GET"])
 def auth_status_view(request):
     if not request.user.is_authenticated:
