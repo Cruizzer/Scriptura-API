@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 import os
 import dj_database_url
+from urllib.parse import quote, unquote
 from dotenv import load_dotenv
 
 # Load environment variables from .env file (two levels up from this file)
@@ -105,13 +106,46 @@ DATABASE_URL = os.getenv('DATABASE_URL', '')
 IS_VERCEL = os.getenv('VERCEL', '') == '1'
 DB_CONN_MAX_AGE = int(os.getenv('DB_CONN_MAX_AGE', '0' if IS_VERCEL else '600'))
 
+
+def _normalize_database_url_password(url: str) -> str:
+    """
+    Normalize DATABASE_URL by safely URL-encoding password portion when needed.
+    Handles URLs like: postgresql://user:raw@pass@host:5432/db
+    by splitting at the last '@' (credentials separator).
+    """
+    if '://' not in url or '@' not in url:
+        return url
+
+    scheme, rest = url.split('://', 1)
+    if '@' not in rest:
+        return url
+
+    creds, host_part = rest.rsplit('@', 1)
+    if ':' not in creds:
+        return url
+
+    username, password = creds.split(':', 1)
+    safe_password = quote(unquote(password), safe='')
+    return f'{scheme}://{username}:{safe_password}@{host_part}'
+
 if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.parse(
+    parsed_db_config = None
+    try:
+        parsed_db_config = dj_database_url.parse(
             DATABASE_URL,
             conn_max_age=DB_CONN_MAX_AGE,
             ssl_require=os.getenv('DB_SSL_REQUIRE', 'True') == 'True',
         )
+    except dj_database_url.ParseError:
+        normalized_database_url = _normalize_database_url_password(DATABASE_URL)
+        parsed_db_config = dj_database_url.parse(
+            normalized_database_url,
+            conn_max_age=DB_CONN_MAX_AGE,
+            ssl_require=os.getenv('DB_SSL_REQUIRE', 'True') == 'True',
+        )
+
+    DATABASES = {
+        'default': parsed_db_config
     }
     # Recommended when using Supabase transaction pooler / PgBouncer.
     DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
