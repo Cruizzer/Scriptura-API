@@ -1130,7 +1130,10 @@
                 <div class="theme-container">
                     <div class="theme-list">
                         <h2>Themes</h2>
-                        <div v-if="themes.length === 0" class="error">
+                        <div v-if="!themesLoaded" class="loading">
+                            Loading themes...
+                        </div>
+                        <div v-else-if="themes.length === 0" class="error">
                             No themes yet. Create one to get started!
                         </div>
                         <div v-for="theme in themes" :key="theme.id" class="theme-item">
@@ -1871,6 +1874,7 @@
                     selectedChapterBook: '',
                     selectedChapterNumber: '',
                     themes: [],
+                    themesLoaded: false,
                     bookSummaries: [],
                     newTheme: { name: '', keywords: '' },
                     themeMessage: null,
@@ -2495,6 +2499,8 @@
                         this.themes = data.results || [];
                     } catch (e) {
                         console.error('Error loading themes:', e);
+                    } finally {
+                        this.themesLoaded = true;
                     }
                 },
                 async createTheme() {
