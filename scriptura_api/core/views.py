@@ -362,6 +362,11 @@ class VerseViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_class = VerseFilter
     search_fields = ['text']
 
+    def get_queryset(self):
+        if self.action == 'retrieve':
+            return repositories.VerseRepository.with_details()
+        return repositories.VerseRepository.all()
+
 
 @extend_schema_view(
     list=extend_schema(

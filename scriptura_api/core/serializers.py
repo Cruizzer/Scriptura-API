@@ -66,7 +66,7 @@ class ChapterListSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_verse_count(self, obj) -> int:
-        return obj.verses.count()
+        return getattr(obj, 'verse_count', obj.verses.count())
 
 
 class ChapterSerializer(serializers.ModelSerializer):

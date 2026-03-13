@@ -22,7 +22,7 @@ class BookRepository:
 class ChapterRepository:
     @staticmethod
     def all():
-        return Chapter.objects.select_related('book').all()
+        return Chapter.objects.select_related('book').annotate(verse_count=Count('verses')).all()
 
     @staticmethod
     def by_book(book_id):
@@ -32,6 +32,10 @@ class ChapterRepository:
 class VerseRepository:
     @staticmethod
     def all():
+        return Verse.objects.select_related('chapter__book').all()
+
+    @staticmethod
+    def with_details():
         return Verse.objects.select_related('chapter__book').prefetch_related('chapter__sections', 'footnotes').all()
 
     @staticmethod
