@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 from core.models import Book, Chapter, Verse, Footnote
 
@@ -74,6 +75,8 @@ class Command(BaseCommand):
         skipped_chapters = 0
         skipped_verses = 0
         skipped_notes = 0
+        pending_footnotes = []
+        candidate_keys = set()
 
         for src_book_name, chapter_payload in data.items():
             target_book_name = BOOK_ALIASES.get(src_book_name, src_book_name)
@@ -137,13 +140,37 @@ class Command(BaseCommand):
                             continue
 
                         marker = 'DR' if len(notes) == 1 else f'DR{idx}'
-                        _, was_created = Footnote.objects.get_or_create(
-                            verse=verse,
+                        key = (verse.id, marker, clean_text)
+                        if key in candidate_keys:
+                            continue
+                        candidate_keys.add(key)
+                        pending_footnotes.append(Footnote(
+                            verse_id=verse.id,
                             marker=marker,
                             text=clean_text,
-                        )
-                        if was_created:
-                            created += 1
+                        ))
+
+        existing_keys = set()
+        if pending_footnotes:
+            verse_ids = {footnote.verse_id for footnote in pending_footnotes}
+            existing_keys = {
+                (verse_id, marker, text)
+                for verse_id, marker, text in Footnote.objects.filter(
+                    verse_id__in=verse_ids,
+                    marker__startswith='DR',
+                ).values_list('verse_id', 'marker', 'text')
+            }
+
+        footnotes_to_create = [
+            footnote
+            for footnote in pending_footnotes
+            if (footnote.verse_id, footnote.marker, footnote.text) not in existing_keys
+        ]
+
+        if footnotes_to_create:
+            with transaction.atomic():
+                Footnote.objects.bulk_create(footnotes_to_create, batch_size=1000)
+            created = len(footnotes_to_create)
 
         self.stdout.write(self.style.SUCCESS(
             'Douay note import complete: '

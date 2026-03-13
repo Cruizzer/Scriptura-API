@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
+import dj_database_url
 from dotenv import load_dotenv
 
 # Load environment variables from .env file (two levels up from this file)
@@ -30,7 +31,19 @@ SECRET_KEY = os.environ['SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') + ['testserver']
+_base_allowed_hosts = [
+    host.strip()
+    for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+    if host.strip()
+]
+ALLOWED_HOSTS = _base_allowed_hosts + ['testserver', '.vercel.app']
+
+VERCEL_URL = os.getenv('VERCEL_URL', '').strip()
+if VERCEL_URL:
+    ALLOWED_HOSTS.append(VERCEL_URL)
+
+# Remove duplicates while preserving order
+ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS))
 
 
 # Application definition
@@ -88,12 +101,23 @@ WSGI_APPLICATION = 'scriptura_api.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DATABASE_URL = os.getenv('DATABASE_URL', '')
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=os.getenv('DB_SSL_REQUIRE', 'True') == 'True',
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -190,11 +214,37 @@ SPECTACULAR_SETTINGS = {
 }
 
 # CORS configuration for frontend
-CORS_ALLOWED_ORIGINS = [
+_default_cors_origins = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
 ]
+
+_env_cors_origins = [
+    origin.strip()
+    for origin in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+    if origin.strip()
+]
+
+CORS_ALLOWED_ORIGINS = _env_cors_origins or _default_cors_origins
+
+if VERCEL_URL:
+    CORS_ALLOWED_ORIGINS.append(f"https://{VERCEL_URL}")
+
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS))
 CORS_ALLOW_CREDENTIALS = True
+
+_env_csrf_origins = [
+    origin.strip()
+    for origin in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
+]
+CSRF_TRUSTED_ORIGINS = _env_csrf_origins
+if VERCEL_URL:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{VERCEL_URL}")
+CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
+
+# Trust Vercel's forwarded proto header for correct https detection.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Google Identity Services uses a popup flow that needs opener access to
 # communicate the credential back to the main window.

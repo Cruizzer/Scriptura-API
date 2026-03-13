@@ -6,7 +6,11 @@ import json
 import re
 import os
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from core.models import Book, Chapter, Section
+
+
+BULK_CREATE_BATCH_SIZE = 1000
 
 
 class Command(BaseCommand):
@@ -81,6 +85,14 @@ class Command(BaseCommand):
         skipped_count = 0
         error_count = 0
 
+        book_lookup = {}
+        for book in Book.objects.only("id", "name"):
+            book_lookup[book.name.lower()] = book.id
+            book_lookup[book.name.replace(" ", "").lower()] = book.id
+
+        referenced_chapters = set()
+        resolved_pericopes = []
+
         for i, pericope in enumerate(pericopes):
             pericope_title = pericope.get("Pericope", "").strip()
             ref_start = pericope.get("Reference Start", "").strip()
@@ -104,7 +116,7 @@ class Command(BaseCommand):
             book_name, chapter_num, verse_num = parsed
 
             # Get book ID
-            book_id = self.get_book_id_by_name(book_name)
+            book_id = book_lookup.get(book_name.lower()) or book_lookup.get(book_name.replace(" ", "").lower())
             if not book_id:
                 self.stdout.write(
                     self.style.WARNING(
@@ -115,46 +127,71 @@ class Command(BaseCommand):
                 error_count += 1
                 continue
 
-            # Get chapter
-            try:
-                chapter = Chapter.objects.get(book_id=book_id, number=chapter_num)
-            except Chapter.DoesNotExist:
-                self.stdout.write(
-                    self.style.WARNING(
-                        f"Chapter not found: {book_name} {chapter_num} "
-                        f"(Pericope: {pericope_title})"
-                    )
-                )
-                error_count += 1
-                continue
-
-            # Create Section
-            try:
-                section, created = Section.objects.get_or_create(
-                    chapter=chapter,
-                    start_verse=verse_num,
-                    defaults={"title": pericope_title},
-                )
-                if created:
-                    created_count += 1
-                else:
-                    # Update title if it already existed
-                    if section.title != pericope_title:
-                        section.title = pericope_title
-                        section.save()
-                    created_count += 1
-            except Exception as e:
-                self.stdout.write(
-                    self.style.ERROR(
-                        f"Error creating section: {e} "
-                        f"(Pericope: {pericope_title})"
-                    )
-                )
-                error_count += 1
+            referenced_chapters.add((book_id, chapter_num))
+            resolved_pericopes.append((book_name, chapter_num, verse_num, pericope_title, i))
 
             # Progress indicator every 500 records
             if (i + 1) % 500 == 0:
                 self.stdout.write(f"Processed {i + 1} pericopes...")
+
+        chapter_lookup = {
+            (chapter.book_id, chapter.number): chapter
+            for chapter in Chapter.objects.filter(
+                book_id__in={book_id for book_id, _ in referenced_chapters},
+                number__in={chapter_num for _, chapter_num in referenced_chapters},
+            ).only("id", "book_id", "number")
+        }
+
+        chapter_ids = [chapter.id for chapter in chapter_lookup.values()]
+        existing_sections = {
+            (section.chapter_id, section.start_verse): section
+            for section in Section.objects.filter(chapter_id__in=chapter_ids).only("id", "chapter_id", "start_verse", "title")
+        }
+
+        sections_to_create = []
+        sections_to_update = []
+        seen_new_sections = set()
+
+        with transaction.atomic():
+            for book_name, chapter_num, verse_num, pericope_title, _ in resolved_pericopes:
+                book_id = book_lookup.get(book_name.lower()) or book_lookup.get(book_name.replace(" ", "").lower())
+                chapter = chapter_lookup.get((book_id, chapter_num))
+                if not chapter:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f"Chapter not found: {book_name} {chapter_num} "
+                            f"(Pericope: {pericope_title})"
+                        )
+                    )
+                    error_count += 1
+                    continue
+
+                section_key = (chapter.id, verse_num)
+                existing_section = existing_sections.get(section_key)
+                if existing_section:
+                    if existing_section.title != pericope_title:
+                        existing_section.title = pericope_title
+                        sections_to_update.append(existing_section)
+                    created_count += 1
+                    continue
+
+                if section_key in seen_new_sections:
+                    created_count += 1
+                    continue
+
+                seen_new_sections.add(section_key)
+                sections_to_create.append(Section(
+                    chapter_id=chapter.id,
+                    start_verse=verse_num,
+                    title=pericope_title,
+                ))
+                created_count += 1
+
+            if sections_to_create:
+                Section.objects.bulk_create(sections_to_create, batch_size=BULK_CREATE_BATCH_SIZE)
+
+            if sections_to_update:
+                Section.objects.bulk_update(sections_to_update, ["title"], batch_size=BULK_CREATE_BATCH_SIZE)
 
         self.stdout.write(
             self.style.SUCCESS(

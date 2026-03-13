@@ -13,6 +13,7 @@ VERSE_PATTERN = re.compile(r'^\\v\s+(\d+[a-z]?)\s*(.*)$')
 CHAPTER_PATTERN = re.compile(r'^\\c\s+(\d+)')
 SECTION_PATTERN = re.compile(r'^\\s\d*\s+(.*)$')
 WORD_TAG_PATTERN = re.compile(r'\\w\s+([^|\\]+)(?:\|[^\\]*)?\\w\*')
+BULK_CREATE_BATCH_SIZE = 1000
 
 
 class Command(BaseCommand):
@@ -86,6 +87,9 @@ class Command(BaseCommand):
         created_footnotes = 0
 
         cumulative_text = []
+        verses_to_create = []
+        sections_to_create = []
+        footnotes_to_create = []
 
         testament = self._testament_from_filename(usfm_path.name)
 
@@ -148,31 +152,32 @@ class Command(BaseCommand):
 
                 clean_text, footnotes = self._clean_text_and_extract_footnotes(verse_text_raw)
 
-                current_verse = Verse.objects.create(
+                current_verse = Verse(
                     chapter=current_chapter,
                     number=verse_number,
                     text=clean_text,
                     paragraph_start=next_paragraph_start,
                 )
+                verses_to_create.append(current_verse)
                 created_verses += 1
                 cumulative_text.append(clean_text)
                 next_paragraph_start = False
 
                 if pending_section_title:
-                    Section.objects.create(
+                    sections_to_create.append(Section(
                         chapter=current_chapter,
                         start_verse=verse_number,
                         title=pending_section_title
-                    )
+                    ))
                     created_sections += 1
                     pending_section_title = None
 
                 for fn in footnotes:
-                    Footnote.objects.create(
+                    footnotes_to_create.append(Footnote(
                         verse=current_verse,
                         marker=fn['marker'],
                         text=fn['text']
-                    )
+                    ))
                     created_footnotes += 1
 
                 continue
@@ -182,14 +187,22 @@ class Command(BaseCommand):
                 clean_text, footnotes = self._clean_text_and_extract_footnotes(line)
                 if clean_text:
                     current_verse.text = f"{current_verse.text} {clean_text}".strip()
-                    current_verse.save(update_fields=['text'])
                 for fn in footnotes:
-                    Footnote.objects.create(
+                    footnotes_to_create.append(Footnote(
                         verse=current_verse,
                         marker=fn['marker'],
                         text=fn['text']
-                    )
+                    ))
                     created_footnotes += 1
+
+        if verses_to_create:
+            Verse.objects.bulk_create(verses_to_create, batch_size=BULK_CREATE_BATCH_SIZE)
+
+        if sections_to_create:
+            Section.objects.bulk_create(sections_to_create, batch_size=BULK_CREATE_BATCH_SIZE)
+
+        if footnotes_to_create:
+            Footnote.objects.bulk_create(footnotes_to_create, batch_size=BULK_CREATE_BATCH_SIZE)
 
         # update summary for this book
         if current_book and cumulative_text:
