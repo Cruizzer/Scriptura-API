@@ -102,15 +102,19 @@ WSGI_APPLICATION = 'scriptura_api.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASE_URL = os.getenv('DATABASE_URL', '')
+IS_VERCEL = os.getenv('VERCEL', '') == '1'
+DB_CONN_MAX_AGE = int(os.getenv('DB_CONN_MAX_AGE', '0' if IS_VERCEL else '600'))
 
 if DATABASE_URL:
     DATABASES = {
         'default': dj_database_url.parse(
             DATABASE_URL,
-            conn_max_age=600,
+            conn_max_age=DB_CONN_MAX_AGE,
             ssl_require=os.getenv('DB_SSL_REQUIRE', 'True') == 'True',
         )
     }
+    # Recommended when using Supabase transaction pooler / PgBouncer.
+    DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
 else:
     DATABASES = {
         'default': {
