@@ -11,6 +11,7 @@ from rest_framework import serializers as drf_serializers
 
 from django_filters import rest_framework as django_filters
 from django.db.models import Q, Prefetch
+from django.db import connection
 from django.contrib.auth.models import User
 from django.conf import settings
 from google.auth.transport import requests
@@ -55,10 +56,25 @@ class BookAnalyticsView(APIView):
     )
     def get(self, request, pk):
         book = repositories.BookRepository.get(pk)
-        # build the full text string once and hand off to service
-        full_text = " ".join(
-            v.text for c in book.chapters.all() for v in c.verses.all()
-        )
+
+        # Build full text with one DB query; prefer DB-side aggregation on Postgres.
+        if connection.vendor == 'postgresql':
+            from django.contrib.postgres.aggregates import StringAgg
+
+            full_text = (
+                Verse.objects
+                .filter(chapter__book=book)
+                .aggregate(all_text=StringAgg('text', delimiter=' '))
+                .get('all_text')
+            ) or ""
+        else:
+            full_text = " ".join(
+                Verse.objects
+                .filter(chapter__book=book)
+                .order_by('chapter__number', 'number')
+                .values_list('text', flat=True)
+            )
+
         return Response({
             "book": book.name,
             "word_count": TextAnalyticsService.word_count(full_text)
@@ -363,9 +379,9 @@ class VerseViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['text']
 
     def get_queryset(self):
-        if self.action == 'retrieve':
-            return repositories.VerseRepository.with_details()
-        return repositories.VerseRepository.all()
+        # Serializer includes footnotes and section_title, so use detailed prefetch
+        # for both list and retrieve to avoid N+1 query explosions.
+        return repositories.VerseRepository.with_details()
 
 
 @extend_schema_view(
